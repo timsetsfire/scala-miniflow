@@ -78,7 +78,16 @@ class MatMul(x: Node, y: Node) extends Node(List(x,y)) {
   }
 }
 
-class Input() extends Node
+class Input() extends Node {
+  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+    this.gradients(this) = Nd4j.zeros(1,1)
+    this.outboundNodes.foreach{
+      n =>
+        val gradCost = n.gradients(this)
+        this.gradients(this) += gradCost * 1d
+    }
+  }
+}
 object Input {
   def apply() = new Input()
 }
@@ -92,7 +101,7 @@ class Linear(inputs: Node, weights: Node, bias: Node) extends Node(List(inputs, 
   override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
     this.inboundNodes.foreach{
       n =>
-        val Array(rows, cols) = this.value.shape
+        val Array(rows, cols) = n.value.shape
         this.gradients(n) = Nd4j.zeros(rows, cols)
     }
     this.outboundNodes.foreach{
@@ -115,7 +124,19 @@ class Sigmoid(node: Node) extends Node(List(node)) {
     val in = inboundNodes(0)
     this.value = sigmoid(in.value)
   }
-  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = ???
+  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+    this.inboundNodes.foreach{
+      n =>
+        val Array(rows, cols) = this.value.shape
+        this.gradients(n) = Nd4j.zeros(rows, cols)
+    }
+    this.outboundNodes.foreach{
+      n =>
+        val gradCost = n.gradients(this)
+        val sigmoid = this.value
+        this.gradients(this.inboundNodes(0)) += sigmoid * (sigmoid.mul(-1d) + 1d) * gradCost
+    }
+  }
 }
 object Sigmoid {
   def apply(node: Node) = new Sigmoid(node)
