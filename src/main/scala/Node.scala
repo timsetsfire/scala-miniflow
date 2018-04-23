@@ -88,6 +88,7 @@ class Input() extends Node {
     }
   }
 }
+
 object Input {
   def apply() = new Input()
 }
@@ -148,7 +149,19 @@ class Tanh(node: Node) extends Node(List(node)) {
     val in = inboundNodes(0)
     this.value = tanh(in.value)
   }
-  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = ???
+  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+    this.inboundNodes.foreach{
+      n =>
+        val Array(rows, cols) = this.value.shape
+        this.gradients(n) = Nd4j.zeros(rows,cols)
+    }
+    this.outboundNodes.foreach{
+      n =>
+        val gradCost = n.gradients(this)
+        val out = this.value
+        this.gradients(this.inboundNodes(0)) += (out * out).mul(-1d).add(1d)
+    }
+  }
 }
 object Tanh {
   def apply(node: Node) = new Tanh(node)
@@ -175,7 +188,7 @@ class MSE(y: Node, yhat: Node) extends Node(List(y,yhat)) {
     val yhat = this.inboundNodes(1).value
     val obs = y.shape.apply(0).toDouble
     this.diff = y - yhat
-    this. value = this.diff.norm2(0) / 10d
+    this. value = this.diff.norm2(0) / (obs.toDouble)
   }
   override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
     val obs = this.inboundNodes(0).value.shape.apply(0).toDouble
