@@ -26,17 +26,16 @@ class Node(val inboundNodes: List[Node] = List()) {
   val outboundNodes = new ArrayBuffer[Node]
   val gradients: MutMap[Node, INDArray] = MutMap()
   // update outbound nodes of inputs to include this
-
   /**
     * @return Returns Unit.  Is only meant to update outbound nodes of
-    * this node's inboundnodes to include this nodes
+    * this node's inbound nodes to include this node
     */
   def setOutboundNodes(): Unit = {
     for(n <- inboundNodes) n.outboundNodes += this
   }
 
   /**
-    * @return Returns Unit.  This method does change this nodes state by
+    * @return Returns Unit.  This method does change this node's  state by
     * updated this node's value.
     * This is called during forward propogation
     */
@@ -45,14 +44,14 @@ class Node(val inboundNodes: List[Node] = List()) {
       this.value = value
     }
   }
-  /**
-    * @return Returns Unit.  This method does change this nodes state by
+  /** Backpropogation step for this node
+    * @return Returns Unit.  This method does change this node's state by
     * updating this nodes' value.
     * This method is called during backward propogation.
     * Each node type has its own forward method.
     */
   def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
-      this.gradients(this) = Nd4j.zeros(1,1)
+      this.gradients(this) = Nd4j.zeros(this.value.shape:_*)
       this.outboundNodes.foreach{
         n =>
           val gradCost = n.gradients(this)
@@ -122,6 +121,19 @@ class Add(x: Node, y: Node) extends Node(List(x,y)) {
     val y = inboundNodes(1).value
     this.value = x + y
   }
+  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+    this.inboundNodes.foreach{
+      n =>
+        val Array(rows, cols) = n.value.shape
+        this.gradients(n) = Nd4j.zeros(rows, cols)
+    }
+    this.outboundNodes.foreach{
+      n =>
+        val gradCost = n.gradients(this)
+        this.gradients(this.inboundNodes(0)) += gradCost
+        this.gradients(this.inboundNodes(1)) += gradCost
+    }
+  }
 }
 
 /** Matrix Multiply Node
@@ -137,6 +149,19 @@ class MatMul(x: Node, y: Node) extends Node(List(x,y)) {
     val x = inboundNodes(0).value
     val y = inboundNodes(1).value
     this.value = x mmul y
+  }
+  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+    this.inboundNodes.foreach{
+      n =>
+        val Array(rows, cols) = n.value.shape
+        this.gradients(n) = Nd4j.zeros(rows, cols)
+    }
+    this.outboundNodes.foreach{
+      n =>
+        val gradCost = n.gradients(this)
+        this.gradients(this.inboundNodes(0)) += (gradCost mmul this.inboundNodes(1).value.transpose)
+        this.gradients(this.inboundNodes(1)) += (this.inboundNodes(0).value.transpose mmul gradCost)
+    }
   }
 }
 
@@ -264,4 +289,7 @@ class MSE(y: Node, yhat: Node) extends Node(List(y,yhat)) {
     this.gradients(this.inboundNodes(0)) = this.diff * (2 / obs)
     this.gradients(this.inboundNodes(1)) = this.diff * (-2/obs)
   }
+}
+object MSE {
+  def apply(y: Node, yhat: Node) = new MSE(y, yhat)
 }
