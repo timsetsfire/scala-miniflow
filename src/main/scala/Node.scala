@@ -8,42 +8,38 @@ import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu}
 import scala.reflect.BeanProperty
 
 package object node {
-  /**
-    * A class to represent the general idea of a node in a directed acyclic graph (DAG)
-    * Each node has a value, a set of inbound nodes, and a set of outbound nodes.
-    * The node has an implicit parameter graph which is used to store the entire DAG
-    * in a convenient manner
-    * Specify the `inboundNodes` when creating a new `Node`
+
+
+  /** A node in a directed graph
+    *
     * @constructor Create a new node with a list of `inboundNodes`
     * @param inboundNodes The inbound nodes for this node
-    * @param graph the graph param is an implicit and should be in the scopee before
-    * creating a Node.  The choice to make this an implicit is to use functinos like
-    * sessions
+    * @param graph the graph param is an implicit and should be in the scope before
+    * creating a Node, otherwise, it will create a new graph upon construction.
+    * the default for graph is only temporary and will be removed in the future.
     * @author Timothy Whittaker
     * @version 1.0
     * @see [[https://medium.com/udacity/the-miniflow-lesson-929200f72e27]] and [[https://gist.github.com/jychstar/7aa4751c369fb296b53e33ec788e88bd]]
     * for more information
     */
-
   class Node(val inboundNodes: List[Node] = List())(implicit graph: MutMap[Node, ArrayBuffer[Node]] = MutMap()) {
 
-    val size: (Any, Any) = (None, None)
     graph.update(this, ArrayBuffer())
+
+    val size: (Any, Any) = (None, None)
     var value = null.asInstanceOf[INDArray]
     val outboundNodes = new ArrayBuffer[Node]
     val gradients: MutMap[Node, INDArray] = MutMap()
-    // update outbound nodes of inputs to include this
-    /**
-      * @return Returns Unit.  Is only meant to update outbound nodes of
-      * this node's inbound nodes to include this node
+
+
+    /** update outbound nodes of the inbound notes to include This
+      * update the graph as well
       */
-    def setOutboundNodes(): Unit = {
-      for(n <- inboundNodes) {
+    inboundNodes.foreach{
+      n =>
         n.outboundNodes += this
-        graph(n) += this
-      }
+        graph(this) += n
     }
-    if(!inboundNodes.isEmpty) setOutboundNodes
 
     /**
       * @return Returns Unit.  This method does change this node's  state by
@@ -90,6 +86,7 @@ package object node {
       * @return Returns Add Node.  This is meant to mimic matrix addition
       * @todo Set up the forward and backward methods in Add
       * @param n is a node which will be added to this
+      * for non-similarly shaped matrices, it obeys nd4j broadcasting.
       */
     def +(n: Node) = {
       new Add(this, n)
@@ -156,7 +153,7 @@ package object node {
     */
 
   class MatMul(x: Node, y: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(x,y))(graph) {
-    
+
     override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
       val x = inboundNodes(0).value
       val y = inboundNodes(1).value
@@ -184,12 +181,14 @@ package object node {
 
   class Placeholder(override val size: (Any, Any) = (None, None))(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) extends Input(size)(graph)
 
-  class Variable(override val size: (Any, Any) = (None, None))(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) extends Input(size)(graph)
+  class Variable(override val size: (Any, Any) = (None, None), val initialize: String = "xavier")(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) extends Input(size)(graph)
 
   class Constant(override val size: (Any, Any) = (None, None))(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) extends Input(size)(graph)
 
   // Linear Node
-  class Linear(inputs: Input, weights: Input, bias: Input)(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) extends Node(List(inputs, weights, bias))(graph) {
+  class Linear(inputs: Node,
+               weights: Input,
+               bias: Input)(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) extends Node(List(inputs, weights, bias))(graph) {
 
     override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
       val List(x, w, b) = inboundNodes.map{ _.value}
@@ -210,9 +209,25 @@ package object node {
       }
     }
   }
+
+  /** Factory for [[com.github.timsetsfire.nn.node.Linear]] instances. */
   object Linear {
-    def apply(input: Input, w: Variable, b: Variable)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) = new Linear(input, w, b)(graph)
-    def apply(input: Input, size: (Any, Any))(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) = {
+    /** create a Linear node with a given input node, weight node and bias node
+      *
+      * given inputs X, weights w and biases b, this node
+      * yields value = (X*w)+b
+      * @param input input nodes
+      * @param w weights
+      * @param b bias
+      */
+    def apply[T <: Node](input: T, w: Variable, b: Variable)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) = new Linear(input, w, b)(graph)
+
+    /** create a linear node wiht a given input and setSize
+      *
+      * @param input input node
+      * @param size a tupe of Any.  size._1 is the size of the input and size._2 is size of output
+      */
+    def apply[T <: Node](input: T, size: (Any, Any), initialize: String = "xavier")(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) = {
         val (in, out) = size match {
           case (x: Int, y: Int) => (x, y)
           case (None, y: Int) => {
@@ -221,14 +236,17 @@ package object node {
           }
           case _ => throw new Exception(s"input has size ${input.size}, and size provided is ${size} are not valid")
         }
-        val w = new Variable( (in, out))
-        val b = new Variable( (1, out))
-        new Linear(input, w, b )(graph)
+        val w = new Variable( (in, out), initialize)
+        val b = new Variable( (1, out), initialize)
+        new Linear(input, w, b)(graph)
     }
   }
 
-// some activation functions
 
+  /** Create Sigmoid activation node
+    *
+    * @param node inbound node
+    */
   class Sigmoid(node: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(node))(graph) {
 
     override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
@@ -249,10 +267,20 @@ package object node {
       }
     }
   }
-  // object Sigmoid {
-  //   def apply(node: Node) = new Sigmoid(node)
-  // }
 
+  /** Factory for [[com.github.timsetsfire.nn.node.Sigmoid]] instances. */
+  object Sigmoid {
+    def apply(node: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) = new Sigmoid(node)(graph)
+    def apply(node: Node, size: (Any, Any), initialize: String = "xavier")(implicit graph: MutMap[Node, ArrayBuffer[Node]]) = {
+      val l1 = Linear(node, size, initialize)(graph)
+      new Sigmoid(l1)(graph)
+    }
+  }
+
+  /** Create Tanh activation node
+    *
+    * @param node inbound node
+    */
   class Tanh(node: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(node))(graph) {
 
     override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
@@ -273,11 +301,22 @@ package object node {
       }
     }
   }
-  // object Tanh {
-  //   def apply(node: Node) = new Tanh(node)
-  // }
 
-  class Relu(node: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(node))(graph) {
+  /** Factory for [[com.github.timsetsfire.nn.node.Sigmoid]] instances. */
+
+  object Tanh {
+    def apply(node: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) = new Tanh(node)(graph)
+    def apply(node: Node, size: (Any, Any), initialize: String = "xavier")(implicit graph: MutMap[Node, ArrayBuffer[Node]]) = {
+      val l1 = Linear(node, size, initialize)(graph)
+      new Tanh(l1)(graph)
+    }
+  }
+
+  /** Create Relu activation node
+    *
+    * @param node inbound node
+    */
+  class ReLU(node: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(node))(graph) {
 
     override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
       val in = inboundNodes(0)
@@ -297,12 +336,23 @@ package object node {
       }
     }
   }
-  // object ReLU {
-  //   def apply(node: Node) = new Relu(node)
-  // }
+
+  /** Factory for [[com.github.timsetsfire.nn.node.Sigmoid]] instances. */
+
+  object ReLU {
+    def apply(node: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) = new ReLU(node)(graph)
+    def apply(node: Node, size: (Any, Any), initialize: String = "xavier")(implicit graph: MutMap[Node, ArrayBuffer[Node]]) = {
+      val l1 = Linear(node, size, initialize)(graph)
+      new ReLU(l1)(graph)
+    }
+  }
 
 
-// cost function
+  /** Mean square error Cost Node
+    *
+    * @param y actual values
+    * @param yhat predicted values
+    */
   class MSE(y: Node, yhat: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(y,yhat))(graph) {
 
     var diff = null.asInstanceOf[INDArray]
@@ -314,14 +364,18 @@ package object node {
       this.diff = y - yhat
       this. value = this.diff.norm2(0) / (obs.toDouble)
     }
+
     override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
       val obs = this.inboundNodes(0).value.shape.apply(0).toDouble
-      this.gradients(this.inboundNodes(0)) = this.diff * (2 / obs)
+      this.gradients(this.inboundNodes(0)) = this.diff * (2/obs)
       this.gradients(this.inboundNodes(1)) = this.diff * (-2/obs)
     }
+
   }
-  // object MSE {
-  //   def apply(y: Node, yhat: Node) = new MSE(y, yhat)
-  // }
+
+  /** Factory for [[com.github.timsetsfire.nn.node.Sigmoid]] instances. */
+  object MSE {
+    def apply(y: Node, yhat: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) = new MSE(y, yhat)(graph)
+  }
 
 }
