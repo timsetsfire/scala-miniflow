@@ -111,7 +111,7 @@ package object node {
     * @example val x = new Node()
     */
   class Transpose(x: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(x))(graph) {
-    setOutboundNodes
+
     override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
       val x = inboundNodes(0).value
       this.value = x.transpose
@@ -126,7 +126,7 @@ package object node {
     * @example val x = new Node()
     */
   class Add(x: Node, y: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(x,y))(graph) {
-    setOutboundNodes
+
     override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
       val x = inboundNodes(0).value
       val y = inboundNodes(1).value
@@ -156,7 +156,7 @@ package object node {
     */
 
   class MatMul(x: Node, y: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(x,y))(graph) {
-    setOutboundNodes
+    
     override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
       val x = inboundNodes(0).value
       val y = inboundNodes(1).value
