@@ -111,6 +111,7 @@ package object node {
     * @example val x = new Node()
     */
   class Transpose(x: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(x))(graph) {
+    setOutboundNodes
     override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
       val x = inboundNodes(0).value
       this.value = x.transpose
@@ -125,7 +126,7 @@ package object node {
     * @example val x = new Node()
     */
   class Add(x: Node, y: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(x,y))(graph) {
-
+    setOutboundNodes
     override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
       val x = inboundNodes(0).value
       val y = inboundNodes(1).value
@@ -155,7 +156,7 @@ package object node {
     */
 
   class MatMul(x: Node, y: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(x,y))(graph) {
-
+    setOutboundNodes
     override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
       val x = inboundNodes(0).value
       val y = inboundNodes(1).value
@@ -189,7 +190,7 @@ package object node {
 
   // Linear Node
   class Linear(inputs: Input, weights: Input, bias: Input)(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) extends Node(List(inputs, weights, bias))(graph) {
-    
+
     override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
       val List(x, w, b) = inboundNodes.map{ _.value}
       this.value = (x mmul w) addRowVector b
@@ -210,7 +211,7 @@ package object node {
     }
   }
   object Linear {
-    def apply(input: Input, w: Variable, b: Variable)(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) = new Linear(input, w, b)(graph)
+    def apply(input: Input, w: Variable, b: Variable)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) = new Linear(input, w, b)(graph)
     def apply(input: Input, size: (Any, Any))(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) = {
         val (in, out) = size match {
           case (x: Int, y: Int) => (x, y)
