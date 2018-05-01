@@ -19,6 +19,7 @@ import com.github.timsetsfire.nn.node._
   // else
   //     return L (a topologically sorted order)
   // reference https://gist.github.com/ThiporKong/4399695
+  // reference https://en.wikipedia.org/wiki/Topological_sorting
 
 package object graph {
 
