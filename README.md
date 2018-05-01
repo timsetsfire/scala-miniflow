@@ -20,6 +20,8 @@ Suppose that `x_` and `y_` are INDArray of data correspond to target and feature
 
 ```
 import com.github.timsetsfire.nn.node._
+import com.github.timsetsfire.nn.graph.topologicalSort
+import com.github.timsetsfire.nn.optimize.GradientDescent
 import scala.collection.mutable.{Map => MutMap, ArrayBuffer}
 import org.nd4j.linalg.factory.Nd4j
 import org.nd4s.Implicits._

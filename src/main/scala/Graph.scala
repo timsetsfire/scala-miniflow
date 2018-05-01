@@ -30,7 +30,7 @@ package object graph {
   ): ArrayBuffer[Node] = {
     val (inputNodesMap, otherNodesMap) = inputs.partition{ _._2.isEmpty}
     if(inputNodesMap.isEmpty) {
-      if(otherNodesMap.isEmpty) sorted else sys.error("There is likely a cycle")
+      if(otherNodesMap.isEmpty) sorted else sys.error("graph has at least one cycle")
     } else {
       val inputNodes = inputNodesMap.map{ _._1 }
       val next = MutMap() ++ otherNodesMap.mapValues{ inputs => inputs -- inputNodes }
