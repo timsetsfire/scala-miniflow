@@ -26,8 +26,7 @@ package object graph {
   class DirectedAcyclicGraph(val x: MutMap[Node, ArrayBuffer[Node]])
 
   def topologicalSort(inputs: MutMap[Node, ArrayBuffer[Node]],
-    sorted: ArrayBuffer[Node]=ArrayBuffer()
-  ): ArrayBuffer[Node] = {
+                      sorted: ArrayBuffer[Node]=ArrayBuffer()): ArrayBuffer[Node] = {
     val (inputNodesMap, otherNodesMap) = inputs.partition{ _._2.isEmpty}
     if(inputNodesMap.isEmpty) {
       if(otherNodesMap.isEmpty) sorted else sys.error("graph has at least one cycle")

@@ -5,10 +5,9 @@ import org.nd4j.linalg.factory.Nd4j
 import org.nd4j.linalg.api.ndarray.INDArray
 import org.nd4s.Implicits._
 import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu}
-import scala.reflect.BeanProperty
+
 
 package object node {
-
 
   /** A node in a directed graph
     *
@@ -26,24 +25,36 @@ package object node {
 
     graph.update(this, ArrayBuffer())
 
+    /** size
+      * this corresponds to the size of the node's value
+      * the value is an size._1 by size._2 Matrix
+      */
     val size: (Any, Any) = (None, None)
+
+    /** value
+      * placeholder for the nodes value.
+      */
     var value = null.asInstanceOf[INDArray]
+
+    // outbound nodes for this node
     val outboundNodes = new ArrayBuffer[Node]
+
+    // gradients for the outbound nodes and current nodes
+    // used for Backpropogation
     val gradients: MutMap[Node, INDArray] = MutMap()
 
-
-    /** update outbound nodes of the inbound notes to include This
+    /** update outbound nodes of the inbound node to include this node
       * update the graph as well
       */
-    inboundNodes.foreach{
+    inboundNodes.foreach {
       n =>
         n.outboundNodes += this
         graph(this) += n
     }
 
-    /**
-      * @return Returns Unit.  This method does change this node's  state by
-      * updated this node's value.
+    /** Forward propogration
+      * @return Returns Unit.  This method changes this node's state by
+      * @param value INDArray - this can probably be removed
       * This is called during forward propogation
       */
     def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
@@ -54,9 +65,8 @@ package object node {
 
     /** Backpropogation step for this node
       * @return Returns Unit.  This method does change this node's state by
-      * updating this nodes' value.
+      * @param value INDArray - this can probably be removed
       * This method is called during backward propogation.
-      * Each node type has its own forward method.
       */
     def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
         this.gradients(this) = Nd4j.zeros(this.value.shape:_*)
@@ -67,24 +77,16 @@ package object node {
         }
       }
 
-    /**
+    /** multiply nodes
       * @return Retusn MatMul Node.  This is meant to mimic matrix multiplication
       * @param n right multiply this node by n
-      * @todo Set up the forward and backward methods in MatMul
       */
     def *(n: Node) = {
-      /**
-      * mutiply
-      * meant to act as a matrix multiply between
-      * two nodes with values of appropriate shape
-      * @param n is node which will right multiply this
-      */
       new MatMul(this, n)
     }
 
-    /**
+    /** add two nodes
       * @return Returns Add Node.  This is meant to mimic matrix addition
-      * @todo Set up the forward and backward methods in Add
       * @param n is a node which will be added to this
       * for non-similarly shaped matrices, it obeys nd4j broadcasting.
       */
@@ -92,7 +94,7 @@ package object node {
       new Add(this, n)
     }
 
-    /**
+    /** transpose a node
       * @return Returns Transpose Node.  This is meant to mimic matrix transposition
       * @todo Set up the forward and backward methods in Tranpose
       */
@@ -101,11 +103,12 @@ package object node {
     }
   }
 
+
   /** Tranpose Node
     * @constructor Create a new `Transpose` node by specifying the node to Transpose.
     * This is not meant to be used directly.
     * @param x The node to transpose.
-    * @example val x = new Node()
+    * @param graph
     */
   class Transpose(x: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(x))(graph) {
 
@@ -117,10 +120,10 @@ package object node {
 
 
   /** Add Node
-    * @constructor Create a new `Transpose` node by specifying the node to Transpose.
+    * @constructor Create a new `Add` node by specifying two nodes to add.
     * This is not meant to be used directly.
-    * @param x The node to transpose.
-    * @example val x = new Node()
+    * @param x
+    * @param y
     */
   class Add(x: Node, y: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(x,y))(graph) {
 
@@ -177,13 +180,18 @@ package object node {
   /**
     *
     */
-  class Input(override val size: (Any, Any) = (None, None))(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) extends Node()(graph)
+  class Input(
+    override val size: (Any, Any) = (None, None)
+  )(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) extends Node()(graph)
 
-  class Placeholder(override val size: (Any, Any) = (None, None))(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) extends Input(size)(graph)
+  class Placeholder(
+    override val size: (Any, Any) = (None, None)
+  )(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) extends Input(size)(graph)
 
-  class Variable(override val size: (Any, Any) = (None, None), val initialize: String = "xavier")(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) extends Input(size)(graph)
-
-  class Constant(override val size: (Any, Any) = (None, None))(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) extends Input(size)(graph)
+  class Variable(
+    override val size: (Any, Any) = (None, None),
+    val initialize: String = "xavier"
+  )(implicit graph: MutMap[Node, ArrayBuffer[Node]]=MutMap()) extends Input(size)(graph)
 
   // Linear Node
   class Linear(inputs: Node,
