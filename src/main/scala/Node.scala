@@ -340,7 +340,7 @@ package object node {
         n =>
           val gradCost = n.gradients(this)
           val out = this.value
-          this.gradients(this.inboundNodes(0)) += out.gt(Nd4j.zerosLike(out))*grad
+          this.gradients(this.inboundNodes(0)) += out.gt(Nd4j.zerosLike(out))*gradCost
       }
     }
   }
