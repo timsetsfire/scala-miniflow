@@ -4,7 +4,7 @@ import scala.collection.mutable.{ArrayBuffer, Map => MutMap}
 import org.nd4j.linalg.factory.Nd4j
 import org.nd4j.linalg.api.ndarray.INDArray
 import org.nd4s.Implicits._
-import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu}
+import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log}
 
 
 package object node {
