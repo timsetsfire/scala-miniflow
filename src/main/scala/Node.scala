@@ -305,7 +305,7 @@ package object node {
         n =>
           val gradCost = n.gradients(this)
           val out = this.value
-          this.gradients(this.inboundNodes(0)) += (out * out).mul(-1d).add(1d)
+          this.gradients(this.inboundNodes(0)) += (out * out).mul(-1d).add(1d)*gradCost
       }
     }
   }
@@ -385,5 +385,53 @@ package object node {
   object MSE {
     def apply(y: Node, yhat: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) = new MSE(y, yhat)(graph)
   }
+  
+  class BCE(y: Node, yhat: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(y,yhat))(graph) {
+
+    var diff = null.asInstanceOf[INDArray]
+
+    override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      val y = this.inboundNodes(0).value
+      val yhat = this.inboundNodes(1).value
+      val obs = y.shape.apply(0).toDouble
+      this.diff = (y / yhat) + ( y.mul(-1) + 1d) / (yhat.mul(-1) + 1d)
+      val temp = ((y * log(yhat))) + ((y.mul(-1) + 1d)*log(yhat.mul(-1)+1d))
+	    this.value = temp.sum(0).div(obs.toDouble).mul(-1)
+    }
+
+    override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      val y = this.inboundNodes(0).value
+      val yhat = this.inboundNodes(1).value
+      val obs = y.shape.apply(0).toDouble
+      this.gradients(this.inboundNodes(0)) = (log(yhat) - log( yhat.sub(1).mul(-1))).div(-obs)
+      //this.gradients(this.inboundNodes(1)) = (y - yhat).div(-obs)
+      this.gradients(this.inboundNodes(1)) = ((y - yhat) / (yhat - yhat*yhat)).div(-obs)
+      class BCE(y: Node, yhat: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(y,yhat))(graph) {
+
+    var diff = null.asInstanceOf[INDArray]
+
+    override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      val y = this.inboundNodes(0).value
+      val yhat = this.inboundNodes(1).value
+      val obs = y.shape.apply(0).toDouble
+      this.diff = (y / yhat) + ( y.mul(-1) + 1d) / (yhat.mul(-1) + 1d)
+      val temp = ((y * log(yhat))) + ((y.mul(-1) + 1d)*log(yhat.mul(-1)+1d))
+	    this.value = temp.sum(0).div(obs.toDouble).mul(-1)
+    }
+
+    override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      val y = this.inboundNodes(0).value
+      val yhat = this.inboundNodes(1).value
+      val obs = y.shape.apply(0).toDouble
+      this.gradients(this.inboundNodes(0)) = (log(yhat) - log( yhat.sub(1).mul(-1))).div(-obs)
+      this.gradients(this.inboundNodes(1)) = ((y - yhat) / (yhat - yhat*yhat)).div(-obs)
+    }
+
+  }
+
+    }
+
+  }
+
 
 }
