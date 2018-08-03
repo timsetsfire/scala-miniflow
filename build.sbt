@@ -1,6 +1,6 @@
 //val nd4jVersion = "0.7.3"
 
-//scalaVersion := "2.11.8"
+scalaVersion := "2.11.8"
 
 val nd4jVersion = "0.7.2"
 libraryDependencies += "org.nd4j" % "nd4j-native-platform" % nd4jVersion
