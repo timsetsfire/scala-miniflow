@@ -4,7 +4,7 @@ import scala.collection.mutable.{ArrayBuffer, Map => MutMap}
 import org.nd4j.linalg.factory.Nd4j
 import org.nd4j.linalg.api.ndarray.INDArray
 import org.nd4s.Implicits._
-import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log}
+import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log, exp}
 
 
 package object node {
@@ -285,6 +285,43 @@ package object node {
     }
   }
 
+  /** Create SoftMax activation node
+    *
+    * @param node inbound node
+    */
+  class SoftMax(node: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(node))(graph) {
+
+    override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      val in = inboundNodes(0)
+      this.value = exp(in.value)
+      this.value.diviColumnVector( this.value.sum(1))
+
+    }
+    override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      this.inboundNodes.foreach{
+        n =>
+          val Array(rows, cols) = this.value.shape
+          this.gradients(n) = Nd4j.zeros(rows, cols)
+      }
+      this.outboundNodes.foreach{
+        n =>
+          val gradCost = n.gradients(this)
+          val softmax = this.value
+          this.gradients(this.inboundNodes(0)) += softmax * (softmax.mul(-1d) + 1d) * gradCost
+      }
+    }
+  }
+
+  /** Factory for [[com.github.timsetsfire.nn.node.SoftMax]] instances. */
+  object SoftMax {
+    def apply(node: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) = new SoftMax(node)(graph)
+    def apply(node: Node, size: (Any, Any), initialize: String = "xavier")(implicit graph: MutMap[Node, ArrayBuffer[Node]]) = {
+      val l1 = Linear(node, size, initialize)(graph)
+      new SoftMax(l1)(graph)
+    }
+  }
+
+
   /** Create Tanh activation node
     *
     * @param node inbound node
@@ -370,7 +407,7 @@ package object node {
       val yhat = this.inboundNodes(1).value
       val obs = y.shape.apply(0).toDouble
       this.diff = y - yhat
-      this. value = this.diff.norm2(0) / (obs.toDouble)
+      this. value = (this.diff * this.diff).sum(0).sum(1) / (obs.toDouble)
     }
 
     override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
@@ -410,10 +447,28 @@ package object node {
     }
   }
 
-  class CrossEntropy(y: Node, yhat: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(y,yhat))(graph) {
+// https://deepnotes.io/softmax-crossentropy
+// https://eli.thegreenplace.net/2016/the-softmax-function-and-its-derivative/
+  class CrossEntropyWithLogits(y: Node, logits: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(y,logits))(graph) {
+    var diff = null.asInstanceOf[INDArray]
 
-
-
+    override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      val y = this.inboundNodes(0).value
+      val logits = this.inboundNodes(1).value
+      val p = exp(logits)
+      p.diviColumnVector( p.sum(1))
+      val obs = y.shape.apply(0).toDouble
+      this.value = (y * log(p)).sum(0).sum(1).div(-obs)
+    }
+    override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      val y = this.inboundNodes(0).value
+      val logits = this.inboundNodes(1).value
+      val p = exp(logits)
+      p.diviColumnVector( p.sum(1))
+      val obs = y.shape.apply(0).toDouble
+      this.gradients(this.inboundNodes(0)) = log(p).div(-obs)
+      this.gradients(this.inboundNodes(1)) = (y - p).div(-obs)
+    }
   }
   //     class BCE(y: Node, yhat: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) extends Node(List(y,yhat))(graph) {
   //
