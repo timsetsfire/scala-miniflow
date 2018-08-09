@@ -42,6 +42,8 @@ class Linear(inputs: Node,
   }
 }
 
+// need a maxout activation node
+
 /** Factory for [[com.github.timsetsfire.nn.node.Linear]] instances. */
 object Linear {
   /** create a Linear node with a given input node, weight node and bias node
