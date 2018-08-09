@@ -17,8 +17,8 @@ import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log}
 // val temp = ((y_ * log(yhat_))) + ((y_.sub(1).mul(-1))*log(yhat_.sub(1).mul(-1)))
 // temp.sum(0)
 
-val x_ = Nd4j.readNumpy("resources/X.csv", ",")
-val y_ = Nd4j.readNumpy("resources/y.csv", ",")
+val x_ = Nd4j.readNumpy("resources/digits_x.csv", ",")
+val y_ = Nd4j.readNumpy("resources/digits_y.csv", ",")
 //
 // val y = new Input()
 // y.value = y_
@@ -27,21 +27,29 @@ val y_ = Nd4j.readNumpy("resources/y.csv", ",")
 // val bce = new BCE(y,yhat)
 // val mse = new MSE(y,yhat)
 
+import org.nd4j.linalg.indexing.NDArrayIndex;
+
+val ypos = y_.data.asInt zipWithIndex
+val y2_ = Nd4j.zeros(y_.shape.apply(0), 10)
+ypos.foreach{ case (k,v) => y2_.putScalar(v,k,1.0)}
+
+
 
 //object NN {
- val y2_ = Nd4j.concat(1, y_, y_.mul(-1).add(1));
+// val y2_ = Nd4j.concat(1, y_, y_.mul(-1).add(1));
 
   val x = new Input()
-  x.setName("features")
+  // x.setName("features")
   val y = new Input()
-  y.setName("labels")
-  val h1 = ReLU(x, (2, 16))
-  h1.setName("hidden_layer1")
+  // y.setName("labels")
+  val h1 = ReLU(x, (64, 16))
+  // h1.setName("hidden_layer1")
   val h2 = ReLU(h1, (16, 8))
-  h2.setName("hidden_layer2")
-  val yhat = Linear(h2, (8, 2))
-  yhat.setName("logits")
+  // h2.setName("hidden_layer2")
+  val yhat = Linear(h2, (8, 10))
+  // yhat.setName("logits")
   val ce = new CrossEntropyWithLogits(y,yhat)
+  // ce.setName("cost")
 
   val network = buildGraph(ce)
   val dag = topologicalSort(network)
@@ -70,12 +78,12 @@ val y_ = Nd4j.readNumpy("resources/y.csv", ",")
   Nd4j.shuffle(data, 1)
 
   val feedDict: Map[Node, Any] = Map(
-    x -> data.getColumns( (2 to nfeatures + 1):_*).getRows((0 until 600):_*),
-    y -> data.getColumns( (0 to 1):_*).getRows((0 until 600):_*)
+    x -> data.getColumns( (10 to nfeatures + 9):_*).getRows((0 until 1797):_*),
+    y -> data.getColumns( (0 to 9):_*).getRows((0 until 1797):_*)
   )
   feedDict.foreach{ n => n._1.value = n._2.asInstanceOf[INDArray]}
 
- for(i <- 0 to 5000) {
+ for(i <- 0 to epochs) {
   dag.foreach( _.forward())
   dag.reverse.map{ i => (i, Try(i.backward()))}
   val trainables = dag.filter{ _.getClass.getSimpleName == "Variable" }
@@ -89,7 +97,7 @@ if(i % 100 == 0) println(s"loss: ${ce.value}")
 val p = exp(yhat.value)
 p.diviColumnVector(p.sum(1))
 val yhat_ = Nd4j.argMax(p,1)
-println(s"accuracy ${(Nd4j.argMax(y.value, 1) eq yhat_).sum(0) / 600d}")
+println(s"accuracy ${(Nd4j.argMax(y.value, 1) eq yhat_).sum(0) / y_.shape.apply(0).toDouble}")
 
 /** dag.foreach( node =>
 if(node.getClass.getName.endsWith("Variable")) {

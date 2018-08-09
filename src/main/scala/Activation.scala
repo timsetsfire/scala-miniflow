@@ -4,7 +4,7 @@ import scala.collection.mutable.{ArrayBuffer, Map => MutMap}
 import org.nd4j.linalg.factory.Nd4j
 import org.nd4j.linalg.api.ndarray.INDArray
 import org.nd4s.Implicits._
-import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log, exp}
+import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log, exp, abs}
 
 
 import com.github.timsetsfire.nn.node._
@@ -216,6 +216,38 @@ object ReLU {
   def apply(node: Node, size: (Any, Any)) = {
     val l1 = Linear(node, size)
     new ReLU(l1)
+  }
+}
+
+class Maxout(node: Node) extends Node(List(node)) {
+
+  override def forward(value: INDArray = null): Unit = {
+    val in = inboundNodes(0)
+    val m = in.value.max(1)
+    this.value = (in.value.addColumnVector(m).div(2)) add (abs( in.value.subColumnVector(m))).div(2)
+  }
+
+  override def backward(value: INDArray = null): Unit = {
+    this.inboundNodes.foreach{
+      n =>
+        val Array(rows, cols) = this.value.shape
+        this.gradients(n) = Nd4j.zeros(rows, cols)
+    }
+    this.outboundNodes.foreach{
+      n =>
+        val gradCost = n.gradients(this)
+        val out = this.value
+        val in = this.inboundNodes(0).value
+        this.gradients(this.inboundNodes(0)) += (out eq in)*gradCost
+    }
+  }
+}
+
+object Maxout {
+  def apply(node: Node) = new Maxout(node)
+  def apply(node: Node, size: (Any, Any)) = {
+    val l1 = Linear(node, size)
+    new Maxout(l1)
   }
 }
 }
