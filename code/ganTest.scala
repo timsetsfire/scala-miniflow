@@ -153,21 +153,18 @@ for(epoch <- 0 to epochs) {
       t.value.subi(  partial * 0.001 )
     }
 
-    println("generative grad sum")
-    generator.foreach( i => i.gradients.mapValues( v => println(v.sumT)))
-    println("discriminator grad sum")
-    discriminator.foreach( i => i.gradients.mapValues( v => println(v.sumT)))
     loss += cost.value(0,0)
 
 
-    //* plot */
-    val dig1 = fakeImages.value.getRow(6).data.asDouble()
-    val dig1b = DenseMatrix(dig1).reshape(8,8).t
-    f2.subplot(0) += image(dig1b)
-    // Thread.sleep(5)
-    //*******/
   }
   if(epoch % 10 == 0) println(s"loss: ${loss}")
 
 }
-// start forward and back prop
+
+//* plot */
+for (i <- 0 to 9) {
+  val dig1 = fakeImages.value.getRow(6).data.asDouble()
+  val dig1b = DenseMatrix(dig1).reshape(8,8).t
+  f2.subplot(3,3,i) += image(dig1b)
+}
+//*******/
