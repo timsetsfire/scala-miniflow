@@ -37,9 +37,11 @@ val noise = new Input()
 noise.setName("noise")
 val fakeLabels = new Input()
 fakeLabels.setName("fake_labels")
-val h1Generator= ReLU(noise, (256, 64))
+val h1Generator= ReLU(noise, (256, 128))
 h1Generator.setName("generator_hidden1")
-val fakeImages = ReLU(h1Generator, (64,64))
+val h2Generator= ReLU(h1Generator, (128, 128))
+h2Generator.setName("generator_hidden2")
+val fakeImages = ReLU(h2Generator, (128,64))
 fakeImages.setName("fake_images")
 
 
@@ -146,7 +148,7 @@ for(epoch <- 0 to epochs) {
     val learningRate = 0.01
     for(t <- discriminatorTrainables) {
       val partial = t.gradients(t)
-      t.value.subi(  partial * 0.01 )
+      t.value.subi(  partial * 0.001 )
     }
     for(t <- generatorTrainables) {
       val partial = t.gradients(t)
@@ -162,8 +164,8 @@ for(epoch <- 0 to epochs) {
 }
 
 //* plot */
-for (i <- 0 to 9) {
-  val dig1 = fakeImages.value.getRow(6).data.asDouble()
+for (i <- 20 to 29) {
+  val dig1 = fakeImages.value.getRow(i).data.asDouble()
   val dig1b = DenseMatrix(dig1).reshape(8,8).t
   f2.subplot(3,3,i) += image(dig1b)
 }
