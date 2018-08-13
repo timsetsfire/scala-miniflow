@@ -16,12 +16,6 @@ class Linear(inputs: Node,
              weights: Input,
              bias: Input) extends Node(List(inputs, weights, bias)) {
 
-
-  override def setName(s: String) = {
-    this.inboundNodes.foreach{ node =>
-      node.setName(s"${s}")
-    }
-  }
   override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
     val List(x, w, b) = inboundNodes.map{ _.value}
     this.value = (x mmul w) addRowVector b
@@ -94,11 +88,18 @@ class Sigmoid(node: Node) extends Node(List(node)) {
         val Array(rows, cols) = this.value.shape
         this.gradients(n) = Nd4j.zeros(rows, cols)
     }
-    this.outboundNodes.foreach{
-      n =>
+    if(value == null) {
+      this.outboundNodes.foreach{
+        n =>
         val gradCost = n.gradients(this)
         val sigmoid = this.value
-        this.gradients(this.inboundNodes(0)) += sigmoid * (sigmoid.mul(-1d) + 1d) * gradCost
+        this.gradients(this.inboundNodes(0)) +=  sigmoid * (sigmoid.mul(-1d) + 1d) * gradCost
+      }
+    } else {
+      this.gradients(this) = value
+      val gradCost = this.gradients(this)
+      val sigmoid = this.value
+      this.gradients(this.inboundNodes(0)) +=  sigmoid * (sigmoid.mul(-1d) + 1d) * gradCost
     }
   }
 }

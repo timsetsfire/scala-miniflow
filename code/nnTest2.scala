@@ -1,6 +1,7 @@
 import com.github.timsetsfire.nn.node._
 import com.github.timsetsfire.nn.activation._
 import com.github.timsetsfire.nn.costfunctions._
+import com.github.timsetsfire.nn.regularization._
 import com.github.timsetsfire.nn.optimize.GradientDescent
 import scala.util.Try
 import org.nd4j.linalg.factory.Nd4j
@@ -19,6 +20,14 @@ import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log}
 
 val x_ = Nd4j.readNumpy("resources/digits_x.csv", ",")
 val y_ = Nd4j.readNumpy("resources/digits_y.csv", ",")
+
+
+def setDropoutTraining(n: Node, training: Boolean = false): Unit = {
+  n.asInstanceOf[Dropout[Node]].train = training
+}
+
+// val x_ = Nd4j.readNumpy("resources/X.csv", ",")
+// val y_ = Nd4j.readNumpy("resources/y.csv", ",")
 //
 // val y = new Input()
 // y.value = y_
@@ -27,8 +36,12 @@ val y_ = Nd4j.readNumpy("resources/digits_y.csv", ",")
 // val bce = new BCE(y,yhat)
 // val mse = new MSE(y,yhat)
 
-import org.nd4j.linalg.indexing.NDArrayIndex;
 
+//object NN {
+// val y2_ = Nd4j.concat(1, y_, y_.mul(-1).add(1));
+
+import org.nd4j.linalg.indexing.NDArrayIndex;
+//
 val ypos = y_.data.asInt zipWithIndex
 val y2_ = Nd4j.zeros(y_.shape.apply(0), 10)
 ypos.foreach{ case (k,v) => y2_.putScalar(v,k,1.0)}
@@ -39,12 +52,13 @@ ypos.foreach{ case (k,v) => y2_.putScalar(v,k,1.0)}
 // val y2_ = Nd4j.concat(1, y_, y_.mul(-1).add(1));
 
   val x = new Input()
-  // x.setName("features")
+  x.setName("features")
   val y = new Input()
-  // y.setName("labels")
-  val h1 = ReLU(x, (64, 16))
-  // h1.setName("hidden_layer1")
-  val h2 = ReLU(h1, (16, 8))
+  y.setName("labels")
+  val d1 = new Dropout(x, 0.5)
+  val h1 = ReLU(d1, (64, 16))
+  val d2 = new Dropout(h1, 0.8)
+  val h2 = ReLU(d2, (16, 8))
   // h2.setName("hidden_layer2")
   val yhat = Linear(h2, (8, 10))
   // yhat.setName("logits")
@@ -53,17 +67,17 @@ ypos.foreach{ case (k,v) => y2_.putScalar(v,k,1.0)}
 
   val network = buildGraph(ce)
   val dag = topologicalSort(network)
-  val learningRate = 0.1
+  val learningRate = 0.01
 
 
   val xrows = x_.shape.apply(0)
   val nfeatures = x_.shape.apply(1)
 
-  val xs_ = x_.subRowVector(x_.mean(0)).divRowVector( x_.std(0))
+  val xs_ = x_.div(16d)
   //val ys = y_.subRowVector(y_.mean(0)).divRowVector( y_.std(0))
 
   val data = Nd4j.concat(1, y2_, x_);
-  val epochs = 500
+  val epochs = 5000
   val batchSize = 600
   val stepsPerEpoch = xrows / batchSize
 
@@ -71,17 +85,19 @@ ypos.foreach{ case (k,v) => y2_.putScalar(v,k,1.0)}
   dag.foreach( node =>
   	if(node.getClass.getSimpleName == "Variable" ) {
   		val (m,n) = node.size
-  		node.value = Nd4j.randn(m.asInstanceOf[Int], n.asInstanceOf[Int])*0.1
+  		node.value = Nd4j.randn(m.asInstanceOf[Int], n.asInstanceOf[Int]).div( math.sqrt(m.asInstanceOf[Int]) + math.sqrt(n.asInstanceOf[Int] ))
   	}
   )
   //
   Nd4j.shuffle(data, 1)
 
   val feedDict: Map[Node, Any] = Map(
-    x -> data.getColumns( (10 to nfeatures + 9):_*).getRows((0 until 1797):_*),
-    y -> data.getColumns( (0 to 9):_*).getRows((0 until 1797):_*)
+    x -> data.getColumns( (9 to 9 + 63):_*),
+    y -> data.getColumns( (0 to 9):_*)
   )
   feedDict.foreach{ n => n._1.value = n._2.asInstanceOf[INDArray]}
+
+  dag.filter( _.getClass.getSimpleName == "Dropout").map{ i => setDropoutTraining(i, true) }
 
  for(i <- 0 to epochs) {
   dag.foreach( _.forward())
@@ -91,9 +107,13 @@ ypos.foreach{ case (k,v) => y2_.putScalar(v,k,1.0)}
     val partial = t.gradients(t)
     t.value.subi(  partial * learningRate )
   }
-if(i % 100 == 0) println(s"loss: ${ce.value}")
+  if(i % 100 == 0) println(s"loss: ${ce.value}")
 }
 
+
+dag.filter( _.getClass.getSimpleName == "Dropout").map{ i => setDropoutTraining(i, false) }
+
+dag.foreach( _.forward())
 val p = exp(yhat.value)
 p.diviColumnVector(p.sum(1))
 val yhat_ = Nd4j.argMax(p,1)

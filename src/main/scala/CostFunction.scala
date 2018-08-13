@@ -74,7 +74,7 @@ package object costfunctions {
         val y = this.inboundNodes(0).value
         val yhat = sigmoid(this.inboundNodes(1).value)
         val obs = y.shape.apply(0).toDouble
-        val temp = ((y * log(yhat))) + ((y.mul(-1) + 1d)*log(yhat.mul(-1)+1d))
+        val temp = ((y * log(yhat + 0.001))) + ((y.mul(-1) + 1d)*log(yhat.mul(-1)+1d + 0.001))
         this.value = temp.sum(0).div(obs.toDouble).mul(-1)
       }
 
@@ -82,7 +82,7 @@ package object costfunctions {
         val y = this.inboundNodes(0).value
         val yhat = sigmoid(this.inboundNodes(1).value)
         val obs = y.shape.apply(0).toDouble
-        this.gradients(this.inboundNodes(0)) = (log(yhat) - log( yhat.sub(1).mul(-1))).div(-obs)
+        this.gradients(this.inboundNodes(0)) = (log(yhat + 0.001) - log( yhat.sub(1).mul(-1) +  0.001)).div(-obs)
         this.gradients(this.inboundNodes(1)) = (y - yhat).div(-obs)
 
       }
@@ -97,7 +97,8 @@ package object costfunctions {
       override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
         val y = this.inboundNodes(0).value
         val logits = this.inboundNodes(1).value
-        val p = exp(logits)
+        val m = logits.max(1)
+        val p = exp(logits.subColumnVector(m))
         p.diviColumnVector( p.sum(1))
         val obs = y.shape.apply(0).toDouble
         this.value = (y * log(p)).sum(0).sum(1).div(-obs)
@@ -105,7 +106,8 @@ package object costfunctions {
       override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
         val y = this.inboundNodes(0).value
         val logits = this.inboundNodes(1).value
-        val p = exp(logits)
+        val m = logits.max(1)
+        val p = exp(logits.subColumnVector(m))
         p.diviColumnVector( p.sum(1))
         val obs = y.shape.apply(0).toDouble
         this.gradients(this.inboundNodes(0)) = log(p).div(-obs)
