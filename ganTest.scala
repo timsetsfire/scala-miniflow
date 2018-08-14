@@ -10,23 +10,49 @@ import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid,exp,log}
 import org.nd4s.Implicits._
 import scala.collection.mutable.{ArrayBuffer, Map=>MutMap}
 
-
-
-
-
-
 import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log}
 // val temp = ((y_ * log(yhat_))) + ((y_.sub(1).mul(-1))*log(yhat_.sub(1).mul(-1)))
 // temp.sum(0)
+import java.io.{FileInputStream, BufferedInputStream, File}
 
 
-object Gan Extends App { 
-:load code/Graph.scala
-def setDropoutTraining(n: Node, training: Boolean = false): Unit = {
-  n.asInstanceOf[Dropout[Node]].train = training
-}
+object Gan extends App {
 
 
+
+  val epochs = args(0).toInt
+
+  def buildGraph(terminalNode: Node) = {
+    val m = MutMap[Node,ArrayBuffer[Node]]()
+
+    def helper( t: Node ): Unit = {
+      if(t.inboundNodes.length == 0) m.update(t, ArrayBuffer())
+      else {
+        m.update(t, ArrayBuffer(t.inboundNodes:_*))
+        t.inboundNodes.map(helper)
+      }
+    }
+    helper(terminalNode)
+    m
+  }
+
+  def topologicalSort(inputs: MutMap[Node, ArrayBuffer[Node]],
+                      sorted: ArrayBuffer[Node]=ArrayBuffer()): ArrayBuffer[Node] = {
+    val (inputNodesMap, otherNodesMap) = inputs.partition{ _._2.isEmpty}
+    if(inputNodesMap.isEmpty) {
+      if(otherNodesMap.isEmpty) sorted else sys.error("graph has at least one cycle")
+    } else {
+      val inputNodes = inputNodesMap.map{ _._1 }
+      val next = MutMap() ++ otherNodesMap.mapValues{ inputs => inputs -- inputNodes }
+      topologicalSort( next, sorted ++ inputNodes)
+    }
+  }
+  def setDropoutTraining(n: Node, training: Boolean = false): Unit = {
+    n.asInstanceOf[Dropout[Node]].train = training
+  }
+
+
+// def main(args: Array[String] = Array() ) = {
 
 
 val x_ = Nd4j.readNumpy("resources/digits_x.csv", ",").sub(8).div(8)
@@ -61,13 +87,13 @@ val labels = new Input()
 labels.setName("labels")
 
 // discriminator
-val h1Discrim = LeakyReLU(images, (64,32), 0.01)
+val h1Discrim = Maxout(images, (64,32))
 h1Discrim.setName("discriminator_hidden_layer1")
-val d1 = new Dropout(h1Discrim, 0.5)
+val d1 = new Dropout(h1Discrim, 0.2)
 d1.setName("dropout_h1_layer")
-val h2Discrim = LeakyReLU(d1, (32,16), 0.01)
+val h2Discrim = Maxout(d1, (32,16))
 h2Discrim.setName("discriminator_hidden_layer2")
-val d2 = new Dropout(h2Discrim, 0.5)
+val d2 = new Dropout(h2Discrim, 0.2)
 d2.setName("dropout_h2_layer")
 val logits = Linear(d2, (16, 1))
 logits.setName("discriminator_logits")
@@ -105,26 +131,28 @@ generatorTrainables.foreach{ node =>
     node.value = Nd4j.randn(m.asInstanceOf[Int], n.asInstanceOf[Int]) * math.sqrt(3/(m.asInstanceOf[Int].toDouble + n.asInstanceOf[Int].toDouble))
   }
 //****************************************
-
+println("generators")
 val Array(xrows, xcols) = x_.shape
-val epochs = 500
+// val epochs = 500
 val batchSize = 128
 val stepsPerEpoch = xrows / batchSize
 
+// val noiseDataForPicture = Nd4j.rand(9,100).mul(2).sub(1)
 //val noiseDataForPicture = Nd4j.rand(9,100).mul(2).sub(1)
-val noiseDataForPicture = Nd4j.rand(9,100).mul(2).sub(1)
 
-var decay = 1d
+//var decay = 1d
 for(epoch <- 0 to epochs) {
+
   var loss = 0d
   var n = 0d
+
   for(steps <- 0 to stepsPerEpoch) {
     //f2.clear
-    noise.forward(noiseDataForPicture)
-    generator.foreach( _.forward() )
+    // noise.forward(noiseDataForPicture)
+    // generator.foreach( _.forward() )
 
     val noiseData = Nd4j.rand(batchSize,100).mul(2).sub(1)
-    val fakeLabelData = Nd4j.ones(batchSize, 1)
+    val fakeLabelData = Nd4j.zeros(batchSize, 1)
 
     val generatorFeedDict: Map[Node, INDArray] = Map(
       noise -> noiseData,
@@ -150,9 +178,9 @@ for(epoch <- 0 to epochs) {
     Nd4j.shuffle(x_,1)
     val realImageData = x_.getRows((0 until batchSize):_*)
     val realLabelData = Nd4j.ones(batchSize, 1)
-    val fakeLabelData0 = Nd4j.zeros(batchSize, 1)
+    //val fakeLabelData0 = Nd4j.zeros(batchSize, 1)
 
-    val labelData = Nd4j.concat(0, fakeLabelData0, realLabelData)
+    val labelData = Nd4j.concat(0, fakeLabelData, realLabelData)
 
     val imageData = Nd4j.concat(0, fakeImageData, realImageData)
 
@@ -173,9 +201,9 @@ for(epoch <- 0 to epochs) {
     }
     for(t <- generatorTrainables) {
       val partial = t.gradients(t)
-      t.value.subi(  partial * 0.01 )
+      t.value.subi(  partial * 0.001 )
     }
-    decay /= 2d
+    //decay /= 2d
     loss += ((cost.value(0,0)) * images.value.shape.apply(0))
     n += images.value.shape.apply(0)
 
@@ -210,3 +238,4 @@ for (i <- 0 until 9) {
 //* plot */
 }
 //*******/
+// }

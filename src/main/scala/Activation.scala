@@ -258,4 +258,44 @@ object Maxout {
     new Maxout(l1)
   }
 }
+
+
+class LeakyReLU(node: Node, l: Double) extends Node(List(node)) {
+
+  override def forward(value: INDArray = null): Unit = {
+    val in = inboundNodes(0).value
+    this.value = (in add in.mul(l)).div(2d) add abs(in sub in.mul(l)).div(2d)
+  }
+
+  override def backward(value: INDArray = null): Unit = {
+    val in = inboundNodes(0).value
+    val out = this.value
+    this.inboundNodes.foreach{
+      n =>
+        val Array(rows, cols) = this.value.shape
+        this.gradients(n) = Nd4j.zeros(rows, cols)
+    }
+    if(value == null) {
+      this.outboundNodes.foreach{
+        n =>
+        val gradCost = n.gradients(this)
+        val out = this.value
+        this.gradients(this.inboundNodes(0)) += ((in eq out) add (out gt in).mul(l))*gradCost
+      }
+    } else {
+      this.gradients(this) = value
+      val gradCost = this.gradients(this)
+      val out = this.value
+      this.gradients(this.inboundNodes(0)) += ((in eq out) add (out gt in).mul(l))*gradCost
+    }
+  }
+}
+object LeakyReLU {
+  def apply(node: Node, leak: Double) = new LeakyReLU(node, leak)
+  def apply(node: Node, size: (Any, Any), leak: Double) = {
+    val l1 = Linear(node, size)
+    new LeakyReLU(l1, leak)
+  }
+}
+
 }

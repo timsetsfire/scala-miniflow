@@ -84,18 +84,14 @@ val discriminator = topologicalSort(discriminatorNetwork)
 
 // initialize generator and discriminator
 generator.foreach( node =>
-  if(node.getClass.getSimpleName == "Variable") {
     val (m,n) = node.size
     node.value = Nd4j.randn(m.asInstanceOf[Int], n.asInstanceOf[Int])*(1/((m.asInstanceOf[Int].toDouble + n.asInstanceOf[Int].toDouble)/2))
-  }
 )
 
 // initialize generator and discriminator
 discriminator.foreach( node =>
-  if(node.getClass.getSimpleName == "Variable") {
     val (m,n) = node.size
     node.value = Nd4j.randn(m.asInstanceOf[Int], n.asInstanceOf[Int])*(1/((m.asInstanceOf[Int].toDouble + n.asInstanceOf[Int].toDouble)/2))
-  }
 )
 //****************************************
 
