@@ -166,11 +166,18 @@ class Tanh(node: Node) extends Node(List(node)) {
         val Array(rows, cols) = this.value.shape
         this.gradients(n) = Nd4j.zeros(rows,cols)
     }
-    this.outboundNodes.foreach{
-      n =>
+    if(value == null) {
+      this.outboundNodes.foreach{
+        n =>
         val gradCost = n.gradients(this)
         val out = this.value
-        this.gradients(this.inboundNodes(0)) += (out * out).mul(-1d).add(1d)*gradCost
+        this.gradients(this.inboundNodes(0)) += out.gt(Nd4j.zerosLike(out))*gradCost
+      }
+    } else {
+      this.gradients(this) = value
+      val gradCost = this.gradients(this)
+      val out = this.value
+      this.gradients(this.inboundNodes(0)) += (out * out).mul(-1d).add(1d)*gradCost
     }
   }
 }
@@ -241,12 +248,18 @@ class Maxout(node: Node) extends Node(List(node)) {
         val Array(rows, cols) = this.value.shape
         this.gradients(n) = Nd4j.zeros(rows, cols)
     }
-    this.outboundNodes.foreach{
-      n =>
+    if(value == null) {
+      this.outboundNodes.foreach{
+        n =>
         val gradCost = n.gradients(this)
         val out = this.value
         val in = this.inboundNodes(0).value
         this.gradients(this.inboundNodes(0)) += (out eq in)*gradCost
+      }
+    } else {
+      this.gradients(this) = value
+      val gradCost = this.gradients(this)
+      val out = this.value
     }
   }
 }

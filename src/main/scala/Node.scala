@@ -182,7 +182,7 @@ import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log, exp}
 
     class Placeholder(override val size: (Any, Any) = (None, None)) extends Input(size)
 
-    class Variable(override val size: (Any, Any) = (None, None), val initialize: String = "xavier") extends Input(size)
+    class Variable(override val size: (Any, Any) = (None, None), val initialize: String = "xavier", val train: Boolean=true) extends Input(size)
 
 
 }

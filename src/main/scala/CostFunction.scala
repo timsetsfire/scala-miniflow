@@ -101,7 +101,7 @@ package object costfunctions {
         val p = exp(logits.subColumnVector(m))
         p.diviColumnVector( p.sum(1))
         val obs = y.shape.apply(0).toDouble
-        this.value = (y * log(p)).sum(0).sum(1).div(-obs)
+        this.value = (y * (log(p).add(0.001))).sum(0).sum(1).div(-obs)
       }
       override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
         val y = this.inboundNodes(0).value

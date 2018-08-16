@@ -12,7 +12,7 @@ import com.github.timsetsfire.nn.node._
 import com.github.timsetsfire.nn.activation._
 import com.github.timsetsfire.nn.costfunctions._
 import com.github.timsetsfire.nn.regularization._
-import com.github.timsetsfire.nn.optimize.GradientDescent
+import com.github.timsetsfire.nn.optimize._
 
 implicit val graph = MutMap[Node, ArrayBuffer[Node]]()
 
@@ -78,7 +78,8 @@ println("\n"):reset
 }
 )*/
 
-  val sgd = new GradientDescent(dag, learningRate = 0.1)
+  //val sgd = new GradientDescent(dag, learningRate = 0.1)
+  val adam = new Adam(dag)
   for(epoch <- 0 until epochs) {
     var loss = 0d
     for(j <- 0 until stepsPerEpoch) {
@@ -90,7 +91,7 @@ println("\n"):reset
         y -> data.getColumn(0).getRows((0 until batchSize):_*)
       )
 
-      sgd.optimize(feedDict)
+      adam.optimize(feedDict)
 
       loss += mse.value(0,0)
     }
