@@ -48,13 +48,14 @@ object Gan extends App {
       n.asInstanceOf[Dropout[Node]].train = training
     }
 
-    val stepSize: Double = 0.001
-    val beta1: Double = 0.9
-    val beta2: Double = 0.999
+    val stepSize: Double = 0.002 // 0.001 default
+    val beta1: Double = 0.2  // 0.9 default
+    val beta2: Double = 0.999  // 0.999 default
     val delta: Double = 1e-8
 
 
     val epochs = args(0).toInt
+    // val epochs = 500
     val x_ = Nd4j.readNumpy("resources/digits_x.csv", ",").sub(8).div(8)
 
     // data placeholders
@@ -86,11 +87,11 @@ object Gan extends App {
     labels.setName("labels")
 
     // discriminator
-    val h1Discrim = LeakyReLU(images, (64,32), 0.2)
+    val h1Discrim = LeakyReLU(images, (64,32), 0.01)
     h1Discrim.setName("discriminator_hidden_layer1")
     val d1 = new Dropout(h1Discrim, 0.8)
     d1.setName("dropout_h1_layer")
-    val h2Discrim = LeakyReLU(d1, (32,16), 0.2)
+    val h2Discrim = LeakyReLU(d1, (32,16), 0.01)
     h2Discrim.setName("discriminator_hidden_layer2")
     val d2 = new Dropout(h2Discrim, 0.8)
     d2.setName("dropout_h2_layer")
@@ -132,13 +133,6 @@ object Gan extends App {
     val secondMomentDiscriminator = discriminatorTrainables.map{ i => (i, Nd4j.zerosLike(i.value))}.toMap
     val t = new java.util.concurrent.atomic.AtomicInteger
 
-    // //******//
-    import breeze.linalg._
-    import breeze.plot._
-    // import scala.concurrent.duration.Thread
-    val f2 = Figure()
-    //******//
-    val noiseDataForPicture = Nd4j.rand(9,100).mul(2).sub(1)
 
 
     for(epoch <- 0 to epochs) {
@@ -201,8 +195,8 @@ object Gan extends App {
         discriminator.reverse.foreach(_.backward())
 
         for( n <- discriminatorTrainables) {
-          firstMomentDiscriminator(n).muli(beta1).addi(n.gradients(n).mul(1 - beta1))
-          secondMomentDiscriminator(n).muli(beta2).addi( pow(n.gradients(n),2).mul(1 - beta2))
+          firstMomentDiscriminator(n).muli(beta1).addi(n.gradients(n).mul(1d - beta1))
+          secondMomentDiscriminator(n).muli(beta2).addi( pow(n.gradients(n),2).mul(1d - beta2))
           val fhat = firstMomentDiscriminator(n).div(1 - math.pow(beta1, t.get))
           val shat = secondMomentDiscriminator(n).div(1 - math.pow(beta2, t.get))
           n.value.addi( fhat.mul(-stepSize).div(sqrt(shat).add(delta)))
@@ -233,14 +227,36 @@ object Gan extends App {
       // fakeImages.gradients(fakeImages).sumT = 0.004577898420393467
 
       }
+
+      // //******//
+      import breeze.linalg._
+      import breeze.plot._
+      // import scala.concurrent.duration.Thread
+      // val f2 = Figure()
+      //******//
+      val noiseDataForPicture = Nd4j.rand(16,100).mul(2).sub(1)
+
+      // val r = DenseMatrix(
+      //   (cos(math.PI/4d), sin(math.PI/4d),
+      //   (-sin(math.PI / 4d), cos(math.PI/4d)))
+
       noise.forward(noiseDataForPicture)
       generator.foreach(_.forward())
-      f2.clear()
-      for (i <- 0 until 9) {
+      val f4 = Figure()
+      for (i <- 0 until 16) {
         val dig1 = fakeImages.value.getRow(i).dup.data.asDouble()
-        val dig1b = DenseMatrix(dig1).reshape(8,8).t
-        f2.subplot(3,3,i) += image(dig1b)
+        val dig1b = DenseMatrix(dig1).reshape(8,8)
+        f4.subplot(4,4,i) += image(dig1b)
       }
+
+      // val f3 = Figure()
+      // Nd4j.shuffle(x_, 1)
+      // for (i <- 0 until 16) {
+      //   val dig1 = x_.getRow(i).dup.data.asDouble()
+      //   val dig1b = DenseMatrix(dig1).reshape(8,8)
+      //   // println(dig1b)
+      //   f3.subplot(4,4,i) += image(dig1b)
+      // }
 
     }
 
