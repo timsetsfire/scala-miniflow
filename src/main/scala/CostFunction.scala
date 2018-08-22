@@ -16,11 +16,11 @@ package object costfunctions {
       * @param y actual values
       * @param yhat predicted values
       */
-    class MSE(y: Node, yhat: Node) extends Node(List(y,yhat)) {
+    class MSE(y: Node, yhat: Node) extends Node(y,yhat) {
 
       var diff = null.asInstanceOf[INDArray]
 
-      override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      override def forward(value: INDArray = null): Unit = {
         val y = this.inboundNodes(0).value
         val yhat = this.inboundNodes(1).value
         val obs = y.shape.apply(0).toDouble
@@ -28,7 +28,7 @@ package object costfunctions {
         this. value = (this.diff * this.diff).sum(0).sum(1) / (obs.toDouble)
       }
 
-      override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      override def backward(value: INDArray = null): Unit = {
         val obs = this.inboundNodes(0).value.shape.apply(0).toDouble
         this.gradients(this.inboundNodes(0)) = this.diff * (2/obs)
         this.gradients(this.inboundNodes(1)) = this.diff * (-2/obs)
@@ -41,11 +41,11 @@ package object costfunctions {
       def apply(y: Node, yhat: Node)(implicit graph: MutMap[Node, ArrayBuffer[Node]]) = new MSE(y, yhat)
     }
 
-    class BCE(y: Node, yhat: Node) extends Node(List(y,yhat)) {
+    class BCE(y: Node, yhat: Node) extends Node(y,yhat) {
 
       var diff = null.asInstanceOf[INDArray]
 
-      override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      override def forward(value: INDArray = null): Unit = {
         val y = this.inboundNodes(0).value
         val yhat = this.inboundNodes(1).value
         val obs = y.shape.apply(0).toDouble
@@ -54,7 +54,7 @@ package object costfunctions {
   	    this.value = temp.sum(0).div(obs.toDouble).mul(-1)
       }
 
-      override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      override def backward(value: INDArray = null): Unit = {
         val y = this.inboundNodes(0).value
         val yhat = this.inboundNodes(1).value
         val obs = y.shape.apply(0).toDouble
@@ -66,11 +66,11 @@ package object costfunctions {
     }
 
 
-    class BceWithLogits(y: Node, logits: Node) extends Node(List(y,logits)) {
+    class BceWithLogits(y: Node, logits: Node) extends Node(y,logits) {
 
       var diff = null.asInstanceOf[INDArray]
 
-      override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      override def forward(value: INDArray = null): Unit = {
         val y = this.inboundNodes(0).value
         val yhat = sigmoid(this.inboundNodes(1).value)
         val obs = y.shape.apply(0).toDouble
@@ -78,7 +78,7 @@ package object costfunctions {
         this.value = temp.sum(0).div(obs.toDouble).mul(-1)
       }
 
-      override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      override def backward(value: INDArray = null): Unit = {
         val y = this.inboundNodes(0).value
         val yhat = sigmoid(this.inboundNodes(1).value)
         val obs = y.shape.apply(0).toDouble
@@ -91,10 +91,10 @@ package object costfunctions {
 
   // https://deepnotes.io/softmax-crossentropy
   // https://eli.thegreenplace.net/2016/the-softmax-function-and-its-derivative/
-    class CrossEntropyWithLogits(y: Node, logits: Node) extends Node(List(y,logits)) {
+    class CrossEntropyWithLogits(y: Node, logits: Node) extends Node(y,logits) {
       var diff = null.asInstanceOf[INDArray]
 
-      override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      override def forward(value: INDArray = null): Unit = {
         val y = this.inboundNodes(0).value
         val logits = this.inboundNodes(1).value
         val m = logits.max(1)
@@ -103,7 +103,7 @@ package object costfunctions {
         val obs = y.shape.apply(0).toDouble
         this.value = (y * (log(p).add(0.001))).sum(0).sum(1).div(-obs)
       }
-      override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      override def backward(value: INDArray = null): Unit = {
         val y = this.inboundNodes(0).value
         val logits = this.inboundNodes(1).value
         val m = logits.max(1)
@@ -116,11 +116,11 @@ package object costfunctions {
     }
 
 
-    class GenBCE(yhat: Node) extends Node(List(yhat)) {
+    class GenBCE(yhat: Node) extends Node(yhat) {
 
       var diff = null.asInstanceOf[INDArray]
 
-      override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      override def forward(value: INDArray = null): Unit = {
         val y = this.inboundNodes(0).value
         val yhat = this.inboundNodes(1).value
         val obs = y.shape.apply(0).toDouble
@@ -129,7 +129,7 @@ package object costfunctions {
   	    this.value = temp.sum(0).div(obs.toDouble).mul(-1)
       }
 
-      override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      override def backward(value: INDArray = null): Unit = {
         val y = this.inboundNodes(0).value
         val yhat = this.inboundNodes(1).value
         val obs = y.shape.apply(0).toDouble

@@ -14,7 +14,7 @@ import java.util.Calendar
 
 
 
-class Dropout[T <: Node]( node: T, val dropout: Double, val seed: Long = Calendar.getInstance.getTime.getTime , var train: Boolean = true) extends Node(List(node)) {
+class Dropout[T <: Node]( node: T, val dropout: Double, val seed: Long = Calendar.getInstance.getTime.getTime , var train: Boolean = true) extends Node(node) {
 
   Nd4j.getRandom().setSeed(seed)
   val b = new BinomialDistribution(1, 1d-dropout)
