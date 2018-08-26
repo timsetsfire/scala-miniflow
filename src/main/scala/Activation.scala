@@ -14,13 +14,13 @@ package object activation {
 // Linear Node
 class Linear(inputs: Node,
              weights: Input,
-             bias: Input) extends Node(List(inputs, weights, bias)) {
+             bias: Input) extends Node(inputs, weights, bias) {
 
-  override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def forward(value: INDArray = null): Unit = {
     val List(x, w, b) = inboundNodes.map{ _.value}
     this.value = (x mmul w) addRowVector b
   }
-  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def backward(value: INDArray = null): Unit = {
     this.inboundNodes.foreach{
       n =>
         val Array(rows, cols) = n.value.shape
@@ -76,13 +76,13 @@ object Linear {
   *
   * @param node inbound node
   */
-class Sigmoid(node: Node) extends Node(List(node)) {
+class Sigmoid(node: Node) extends Node(node) {
 
-  override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def forward(value: INDArray = null): Unit = {
     val in = inboundNodes(0)
     this.value = sigmoid(in.value)
   }
-  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def backward(value: INDArray = null): Unit = {
     this.inboundNodes.foreach{
       n =>
         val Array(rows, cols) = this.value.shape
@@ -117,15 +117,15 @@ object Sigmoid {
   *
   * @param node inbound node
   */
-class SoftMax(node: Node) extends Node(List(node)) {
+class SoftMax(node: Node) extends Node(node) {
 
-  override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def forward(value: INDArray = null): Unit = {
     val in = inboundNodes(0)
     this.value = exp(in.value)
     this.value.diviColumnVector( this.value.sum(1))
 
   }
-  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def backward(value: INDArray = null): Unit = {
     this.inboundNodes.foreach{
       n =>
         val Array(rows, cols) = this.value.shape
@@ -154,13 +154,13 @@ object SoftMax {
   *
   * @param node inbound node
   */
-class Tanh(node: Node) extends Node(List(node)) {
+class Tanh(node: Node) extends Node(node) {
 
-  override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def forward(value: INDArray = null): Unit = {
     val in = inboundNodes(0)
     this.value = tanh(in.value)
   }
-  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def backward(value: INDArray = null): Unit = {
     this.inboundNodes.foreach{
       n =>
         val Array(rows, cols) = this.value.shape
@@ -196,13 +196,13 @@ object Tanh {
   *
   * @param node inbound node
   */
-class ReLU(node: Node) extends Node(List(node)) {
+class ReLU(node: Node) extends Node(node) {
 
-  override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def forward(value: INDArray = null): Unit = {
     val in = inboundNodes(0)
     this.value = relu(in.value)
   }
-  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def backward(value: INDArray = null): Unit = {
     this.inboundNodes.foreach{
       n =>
         val Array(rows, cols) = this.value.shape
@@ -234,7 +234,7 @@ object ReLU {
   }
 }
 
-class Maxout(node: Node) extends Node(List(node)) {
+class Maxout(node: Node) extends Node(node) {
 
   override def forward(value: INDArray = null): Unit = {
     val in = inboundNodes(0)
@@ -273,7 +273,7 @@ object Maxout {
 }
 
 
-class LeakyReLU(node: Node, l: Double) extends Node(List(node)) {
+class LeakyReLU(node: Node, l: Double) extends Node(node) {
 
   override def forward(value: INDArray = null): Unit = {
     val in = inboundNodes(0).value
