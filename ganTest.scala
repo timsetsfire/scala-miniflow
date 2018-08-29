@@ -1,6 +1,7 @@
 import com.github.timsetsfire.nn.node._
 import com.github.timsetsfire.nn.activation._
 import com.github.timsetsfire.nn.costfunctions._
+import com.github.timsetsfire.nn.batchnormalization._
 import com.github.timsetsfire.nn.regularization.Dropout
 import com.github.timsetsfire.nn.optimize._
 import scala.util.Try
@@ -48,7 +49,7 @@ object Gan extends App {
       n.asInstanceOf[Dropout[Node]].train = training
     }
 
-    val stepSize: Double = 0.002 // 0.001 default
+    var stepSize: Double = 0.002 // 0.001 default
     val beta1: Double = 0.2  // 0.9 default
     val beta2: Double = 0.999  // 0.999 default
     val delta: Double = 1e-8
@@ -71,9 +72,13 @@ object Gan extends App {
     fakeLabels.setName("fake_labels")
     val h1Generator= LeakyReLU(noise, (100,128), 0.2)
     h1Generator.setName("generator_hidden1")
-    val h2Generator= LeakyReLU(h1Generator, (128, 128), 0.2)
+    val bn1 = BatchNormalization(h1Generator, (None, 128))
+    val h2Generator= LeakyReLU(bn1, (128, 128), 0.2)
+    // val h2Generator= LeakyReLU(h1Generator, (128, 128), 0.2)
     h2Generator.setName("generator_hidden2")
-    val h3Generator= LeakyReLU(h2Generator, (128, 128), 0.2)
+    val bn2 = BatchNormalization(h2Generator, (None, 128))
+    val h3Generator= LeakyReLU(bn2, (128, 128), 0.2)
+    // val h3Generator= LeakyReLU(h2Generator, (128, 128), 0.2)
     h2Generator.setName("generator_hidden3")
     val fakeImages = Tanh(h3Generator, (128,64))
     fakeImages.setName("fake_images")
@@ -87,15 +92,17 @@ object Gan extends App {
     labels.setName("labels")
 
     // discriminator
-    val h1Discrim = LeakyReLU(images, (64,32), 0.01)
+    // val h1Discrim = Maxout(images, (64,32))
+    val h1Discrim = LeakyReLU(images, (64,16), 0.2)
     h1Discrim.setName("discriminator_hidden_layer1")
-    val d1 = new Dropout(h1Discrim, 0.8)
+    val d1 = new Dropout(h1Discrim, 0.5)
     d1.setName("dropout_h1_layer")
-    val h2Discrim = LeakyReLU(d1, (32,16), 0.01)
-    h2Discrim.setName("discriminator_hidden_layer2")
-    val d2 = new Dropout(h2Discrim, 0.8)
-    d2.setName("dropout_h2_layer")
-    val logits = Linear(d2, (16, 1))
+    // val h2Discrim = Maxout(d1, (32,16))
+    // val h2Discrim = LeakyReLU(d1, (32,16), 0.2)
+    // h2Discrim.setName("discriminator_hidden_layer2")
+    // val d2 = new Dropout(h2Discrim, 0.8)
+    // d2.setName("dropout_h2_layer")
+    val logits = Linear(d1, (16, 1))
     logits.setName("discriminator_logits")
 
     val cost = new BceWithLogits(labels, logits)
@@ -217,7 +224,7 @@ object Gan extends App {
         loss += ((cost.value(0,0)) * images.value.shape.apply(0))
         n += images.value.shape.apply(0)
       }
-
+      if(epoch % 1000 == 0) stepSize /= 2d
       if(epoch % 100 == 0) {
         println(s"discriminator -> epoch: ${epoch}, loss: ${loss / n.toDouble}")
         println(s"generator -----> epoch: ${epoch}, loss: ${genCost / (n.toDouble/2d)}")
