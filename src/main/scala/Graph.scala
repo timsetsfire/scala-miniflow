@@ -22,8 +22,19 @@ import com.github.timsetsfire.nn.node._
   // reference https://en.wikipedia.org/wiki/Topological_sorting
 
 package object graph {
+  def buildGraph(terminalNode: Node) = {
+    val m = MutMap[Node,ArrayBuffer[Node]]()
 
-  class DirectedAcyclicGraph(val x: MutMap[Node, ArrayBuffer[Node]])
+    def helper( t: Node ): Unit = {
+      if(t.inboundNodes.length == 0) m.update(t, ArrayBuffer())
+      else {
+        m.update(t, ArrayBuffer(t.inboundNodes:_*))
+        t.inboundNodes.map(helper)
+      }
+    }
+    helper(terminalNode)
+    m
+  }
 
   def topologicalSort(inputs: MutMap[Node, ArrayBuffer[Node]],
                       sorted: ArrayBuffer[Node]=ArrayBuffer()): ArrayBuffer[Node] = {
@@ -36,5 +47,4 @@ package object graph {
       topologicalSort( next, sorted ++ inputNodes)
     }
   }
-
 }
