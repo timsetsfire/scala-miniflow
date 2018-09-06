@@ -1,6 +1,7 @@
 
 
 
+:reset
 import scala.collection.mutable.{ArrayBuffer, Map => MutMap, Set => MutSet}
 import org.nd4j.linalg.factory.Nd4j
 import org.nd4j.linalg.api.ndarray.INDArray
@@ -8,12 +9,14 @@ import org.nd4j.linalg.ops.transforms.Transforms.sigmoid
 import org.nd4s.Implicits._
 
 import com.github.timsetsfire.nn.node._
-import com.github.timsetsfire.nn.graph.topologicalSort
-import com.github.timsetsfire.nn.optimize.GradientDescent
+import com.github.timsetsfire.nn.activation._
+import com.github.timsetsfire.nn.costfunctions._
+import com.github.timsetsfire.nn.regularization._
+import com.github.timsetsfire.nn.optimize._
 
 implicit val graph = MutMap[Node, ArrayBuffer[Node]]()
 
-
+:load code/Graph.scala
 
 import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log}
 // val temp = ((y_ * log(yhat_))) + ((y_.sub(1).mul(-1))*log(yhat_.sub(1).mul(-1)))
@@ -35,9 +38,9 @@ val y_ = Nd4j.readNumpy("resources/y.csv", ",")
 
   val x = new Input()
   val y = new Input()
-  val h1 = Tanh(x, (2, 16), "xavier")
-  val h2 = Tanh(h1, (16, 8), "xavier")
-  val yhat = Sigmoid(h2, (8, 1), "xavier")
+  val h1 = Tanh(x, (2, 16))
+  val h2 = Tanh(h1, (16, 8))
+  val yhat = Sigmoid(h2, (8, 1))
   val mse = new BCE(y,yhat)
 
 
@@ -56,6 +59,9 @@ val y_ = Nd4j.readNumpy("resources/y.csv", ",")
   val stepsPerEpoch = xrows / batchSize
 
 
+  val network = buildGraph(mse)
+  val dag = topologicalSort(network)
+
   dag.foreach( node =>
 	if(node.getClass.getName.endsWith("Variable")) {
 		val (m,n) = node.size
@@ -72,7 +78,8 @@ println("\n"):reset
 }
 )*/
 
-  val sgd = new GradientDescent(dag, learningRate = 0.1)
+  //val sgd = new GradientDescent(dag, learningRate = 0.1)
+  val adam = new Adam(dag)
   for(epoch <- 0 until epochs) {
     var loss = 0d
     for(j <- 0 until stepsPerEpoch) {
@@ -84,7 +91,7 @@ println("\n"):reset
         y -> data.getColumn(0).getRows((0 until batchSize):_*)
       )
 
-      sgd.optimize(feedDict)
+      adam.optimize(feedDict)
 
       loss += mse.value(0,0)
     }

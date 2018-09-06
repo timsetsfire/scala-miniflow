@@ -20,7 +20,7 @@ import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log, exp}
   package object node {
 
 
-  class Node(val inboundNodes: List[Node] = List()) {
+  class Node(val inboundNodes: Node*) {
 
     var name: String = null
 
@@ -45,7 +45,7 @@ import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log, exp}
       /** value
         * placeholder for node's value
         */
-      var value = null.asInstanceOf[INDArray]
+      var value: INDArray = null
 
       /** outboundNodes
         * outbound nodes for this node
@@ -65,7 +65,7 @@ import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log, exp}
         * @param value INDArray - this can probably be removed
         * This is called during forward propogation
         */
-      def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      def forward(value: INDArray = null): Unit = {
         if(value != null) {
           this.value = value
         }
@@ -76,7 +76,7 @@ import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log, exp}
         * @param value INDArray - this can probably be removed
         * This method is called during backward propogation.
         */
-      def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      def backward(value: INDArray = null): Unit = {
           this.gradients(this) = Nd4j.zeros(this.value.shape:_*)
           this.outboundNodes.foreach{
             n =>
@@ -111,9 +111,9 @@ import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log, exp}
       }
     }
 
-    class Transpose(x: Node) extends Node(List(x)) {
+    class Transpose(x: Node) extends Node(x) {
 
-      override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      override def forward(value: INDArray = null): Unit = {
         val x = inboundNodes(0).value
         this.value = x.transpose
       }
@@ -126,14 +126,14 @@ import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log, exp}
       * @param x
       * @param y
       */
-    class Add(x: Node, y: Node) extends Node(List(x,y)) {
+    class Add(x: Node, y: Node) extends Node(x,y) {
 
-      override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      override def forward(value: INDArray = null): Unit = {
         val x = inboundNodes(0).value
         val y = inboundNodes(1).value
         this.value = x + y
       }
-      override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      override def backward(value: INDArray = null): Unit = {
         this.inboundNodes.foreach{
           n =>
             val Array(rows, cols) = n.value.shape
@@ -156,14 +156,14 @@ import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log, exp}
       * @param y right node in matrix multiply
       */
 
-    class MatMul(x: Node, y: Node) extends Node(List(x,y)) {
+    class MatMul(x: Node, y: Node) extends Node(x,y) {
 
-      override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      override def forward(value: INDArray = null): Unit = {
         val x = inboundNodes(0).value
         val y = inboundNodes(1).value
         this.value = x mmul y
       }
-      override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+      override def backward(value: INDArray = null): Unit = {
         this.inboundNodes.foreach{
           n =>
             val Array(rows, cols) = n.value.shape
@@ -182,7 +182,7 @@ import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log, exp}
 
     class Placeholder(override val size: (Any, Any) = (None, None)) extends Input(size)
 
-    class Variable(override val size: (Any, Any) = (None, None), val initialize: String = "xavier") extends Input(size)
+    class Variable(override val size: (Any, Any) = (None, None), val initialize: String = "xavier", val train: Boolean=true) extends Input(size)
 
 
 }

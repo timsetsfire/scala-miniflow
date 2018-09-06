@@ -4,7 +4,7 @@ import scala.collection.mutable.{ArrayBuffer, Map => MutMap}
 import org.nd4j.linalg.factory.Nd4j
 import org.nd4j.linalg.api.ndarray.INDArray
 import org.nd4s.Implicits._
-import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log, exp}
+import org.nd4j.linalg.ops.transforms.Transforms.{sigmoid, tanh, relu, log, exp, abs}
 
 
 import com.github.timsetsfire.nn.node._
@@ -14,19 +14,13 @@ package object activation {
 // Linear Node
 class Linear(inputs: Node,
              weights: Input,
-             bias: Input) extends Node(List(inputs, weights, bias)) {
+             bias: Input) extends Node(inputs, weights, bias) {
 
-
-  override def setName(s: String) = {
-    this.inboundNodes.foreach{ node =>
-      node.setName(s"${s}")
-    }
-  }
-  override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
-    val List(x, w, b) = inboundNodes.map{ _.value}
+  override def forward(value: INDArray = null): Unit = {
+    val Seq(x, w, b) = inboundNodes.map{ _.value}
     this.value = (x mmul w) addRowVector b
   }
-  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def backward(value: INDArray = null): Unit = {
     this.inboundNodes.foreach{
       n =>
         val Array(rows, cols) = n.value.shape
@@ -41,6 +35,8 @@ class Linear(inputs: Node,
     }
   }
 }
+
+// need a maxout activation node
 
 /** Factory for [[com.github.timsetsfire.nn.node.Linear]] instances. */
 object Linear {
@@ -80,23 +76,30 @@ object Linear {
   *
   * @param node inbound node
   */
-class Sigmoid(node: Node) extends Node(List(node)) {
+class Sigmoid(node: Node) extends Node(node) {
 
-  override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def forward(value: INDArray = null): Unit = {
     val in = inboundNodes(0)
     this.value = sigmoid(in.value)
   }
-  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def backward(value: INDArray = null): Unit = {
     this.inboundNodes.foreach{
       n =>
         val Array(rows, cols) = this.value.shape
         this.gradients(n) = Nd4j.zeros(rows, cols)
     }
-    this.outboundNodes.foreach{
-      n =>
+    if(value == null) {
+      this.outboundNodes.foreach{
+        n =>
         val gradCost = n.gradients(this)
         val sigmoid = this.value
-        this.gradients(this.inboundNodes(0)) += sigmoid * (sigmoid.mul(-1d) + 1d) * gradCost
+        this.gradients(this.inboundNodes(0)) +=  sigmoid * (sigmoid.mul(-1d) + 1d) * gradCost
+      }
+    } else {
+      this.gradients(this) = value
+      val gradCost = this.gradients(this)
+      val sigmoid = this.value
+      this.gradients(this.inboundNodes(0)) +=  sigmoid * (sigmoid.mul(-1d) + 1d) * gradCost
     }
   }
 }
@@ -114,15 +117,15 @@ object Sigmoid {
   *
   * @param node inbound node
   */
-class SoftMax(node: Node) extends Node(List(node)) {
+class SoftMax(node: Node) extends Node(node) {
 
-  override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def forward(value: INDArray = null): Unit = {
     val in = inboundNodes(0)
     this.value = exp(in.value)
     this.value.diviColumnVector( this.value.sum(1))
 
   }
-  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def backward(value: INDArray = null): Unit = {
     this.inboundNodes.foreach{
       n =>
         val Array(rows, cols) = this.value.shape
@@ -151,23 +154,30 @@ object SoftMax {
   *
   * @param node inbound node
   */
-class Tanh(node: Node) extends Node(List(node)) {
+class Tanh(node: Node) extends Node(node) {
 
-  override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def forward(value: INDArray = null): Unit = {
     val in = inboundNodes(0)
     this.value = tanh(in.value)
   }
-  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def backward(value: INDArray = null): Unit = {
     this.inboundNodes.foreach{
       n =>
         val Array(rows, cols) = this.value.shape
         this.gradients(n) = Nd4j.zeros(rows,cols)
     }
-    this.outboundNodes.foreach{
-      n =>
+    if(value == null) {
+      this.outboundNodes.foreach{
+        n =>
         val gradCost = n.gradients(this)
         val out = this.value
-        this.gradients(this.inboundNodes(0)) += (out * out).mul(-1d).add(1d)*gradCost
+        this.gradients(this.inboundNodes(0)) += out.gt(Nd4j.zerosLike(out))*gradCost
+      }
+    } else {
+      this.gradients(this) = value
+      val gradCost = this.gradients(this)
+      val out = this.value
+      this.gradients(this.inboundNodes(0)) += (out * out).mul(-1d).add(1d)*gradCost
     }
   }
 }
@@ -186,23 +196,30 @@ object Tanh {
   *
   * @param node inbound node
   */
-class ReLU(node: Node) extends Node(List(node)) {
+class ReLU(node: Node) extends Node(node) {
 
-  override def forward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def forward(value: INDArray = null): Unit = {
     val in = inboundNodes(0)
     this.value = relu(in.value)
   }
-  override def backward(value: INDArray = null.asInstanceOf[INDArray]): Unit = {
+  override def backward(value: INDArray = null): Unit = {
     this.inboundNodes.foreach{
       n =>
         val Array(rows, cols) = this.value.shape
         this.gradients(n) = Nd4j.zeros(rows,cols)
     }
-    this.outboundNodes.foreach{
-      n =>
+    if(value == null) {
+      this.outboundNodes.foreach{
+        n =>
         val gradCost = n.gradients(this)
         val out = this.value
         this.gradients(this.inboundNodes(0)) += out.gt(Nd4j.zerosLike(out))*gradCost
+      }
+    } else {
+      this.gradients(this) = value
+      val gradCost = this.gradients(this)
+      val out = this.value
+      this.gradients(this.inboundNodes(0)) += out.gt(Nd4j.zerosLike(out))*gradCost
     }
   }
 }
@@ -216,4 +233,82 @@ object ReLU {
     new ReLU(l1)
   }
 }
+
+class Maxout(node: Node) extends Node(node) {
+
+  override def forward(value: INDArray = null): Unit = {
+    val in = inboundNodes(0)
+    val m = in.value.max(1)
+    this.value = (in.value.addColumnVector(m).div(2)) add (abs( in.value.subColumnVector(m))).div(2)
+  }
+
+  override def backward(value: INDArray = null): Unit = {
+    this.inboundNodes.foreach{
+      n =>
+        val Array(rows, cols) = this.value.shape
+        this.gradients(n) = Nd4j.zeros(rows, cols)
+    }
+    if(value == null) {
+      this.outboundNodes.foreach{
+        n =>
+        val gradCost = n.gradients(this)
+        val out = this.value
+        val in = this.inboundNodes(0).value
+        this.gradients(this.inboundNodes(0)) += (out eq in)*gradCost
+      }
+    } else {
+      this.gradients(this) = value
+      val gradCost = this.gradients(this)
+      val out = this.value
+    }
+  }
+}
+
+object Maxout {
+  def apply(node: Node) = new Maxout(node)
+  def apply(node: Node, size: (Any, Any)) = {
+    val l1 = Linear(node, size)
+    new Maxout(l1)
+  }
+}
+
+
+class LeakyReLU(node: Node, l: Double) extends Node(node) {
+
+  override def forward(value: INDArray = null): Unit = {
+    val in = inboundNodes(0).value
+    this.value = (in add in.mul(l)).div(2d) add abs(in sub in.mul(l)).div(2d)
+  }
+
+  override def backward(value: INDArray = null): Unit = {
+    val in = inboundNodes(0).value
+    val out = this.value
+    this.inboundNodes.foreach{
+      n =>
+        val Array(rows, cols) = this.value.shape
+        this.gradients(n) = Nd4j.zeros(rows, cols)
+    }
+    if(value == null) {
+      this.outboundNodes.foreach{
+        n =>
+        val gradCost = n.gradients(this)
+        val out = this.value
+        this.gradients(this.inboundNodes(0)) += ((in eq out) add (out gt in).mul(l))*gradCost
+      }
+    } else {
+      this.gradients(this) = value
+      val gradCost = this.gradients(this)
+      val out = this.value
+      this.gradients(this.inboundNodes(0)) += ((in eq out) add (out gt in).mul(l))*gradCost
+    }
+  }
+}
+object LeakyReLU {
+  def apply(node: Node, leak: Double) = new LeakyReLU(node, leak)
+  def apply(node: Node, size: (Any, Any), leak: Double) = {
+    val l1 = Linear(node, size)
+    new LeakyReLU(l1, leak)
+  }
+}
+
 }

@@ -39,7 +39,7 @@ def buildGraph(terminalNode: Node) = {
   m
 }
 
-  def topologicalSort(inputs: MutMap[Node, ArrayBuffer[Node]],tfs
+  def topologicalSort(inputs: MutMap[Node, ArrayBuffer[Node]],
                       sorted: ArrayBuffer[Node]=ArrayBuffer()): ArrayBuffer[Node] = {
     val (inputNodesMap, otherNodesMap) = inputs.partition{ _._2.isEmpty}
     if(inputNodesMap.isEmpty) {
