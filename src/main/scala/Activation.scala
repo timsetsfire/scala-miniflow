@@ -17,7 +17,7 @@ class Linear(inputs: Node,
              bias: Input) extends Node(inputs, weights, bias) {
 
   override def forward(value: INDArray = null): Unit = {
-    val List(x, w, b) = inboundNodes.map{ _.value}
+    val Seq(x, w, b) = inboundNodes.map{ _.value}
     this.value = (x mmul w) addRowVector b
   }
   override def backward(value: INDArray = null): Unit = {

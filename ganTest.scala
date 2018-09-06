@@ -48,6 +48,13 @@ object Gan extends App {
     def setDropoutTraining(n: Node, training: Boolean = false): Unit = {
       n.asInstanceOf[Dropout[Node]].train = training
     }
+    // //******//
+    import breeze.linalg._
+    import breeze.plot._
+    // import scala.concurrent.duration.Thread
+    // val f2 = Figure()
+    //******//
+    val noiseDataForPicture = Nd4j.rand(16,100).mul(2).sub(1)
 
     var stepSize: Double = 0.002 // 0.001 default
     val beta1: Double = 0.2  // 0.9 default
@@ -57,7 +64,8 @@ object Gan extends App {
 
     val epochs = args(0).toInt
     // val epochs = 500
-    val x_ = Nd4j.readNumpy("resources/digits_x.csv", ",").sub(8).div(8)
+    // val x_ = Nd4j.readNumpy("resources/digits_x.csv", ",").sub(8).div(8)
+    val x_ = Nd4j.readNumpy("resources/mnist_test.csv", ",").getColumns( (1 until 785):_*).sub(127.5).div(127.5)
 
     // data placeholders
     val realImages =  new Input()
@@ -72,15 +80,16 @@ object Gan extends App {
     fakeLabels.setName("fake_labels")
     val h1Generator= LeakyReLU(noise, (100,128), 0.2)
     h1Generator.setName("generator_hidden1")
-    val bn1 = BatchNormalization(h1Generator, (None, 128))
-    val h2Generator= LeakyReLU(bn1, (128, 128), 0.2)
-    // val h2Generator= LeakyReLU(h1Generator, (128, 128), 0.2)
+    // val bn1 = BatchNormalization(h1Generator, (None, 128))
+    // val h2Generator= LeakyReLU(bn1, (128, 256), 0.2)
+    val h2Generator= LeakyReLU(h1Generator, (128, 256), 0.2)
     h2Generator.setName("generator_hidden2")
-    val bn2 = BatchNormalization(h2Generator, (None, 128))
-    val h3Generator= LeakyReLU(bn2, (128, 128), 0.2)
-    // val h3Generator= LeakyReLU(h2Generator, (128, 128), 0.2)
-    h2Generator.setName("generator_hidden3")
-    val fakeImages = Tanh(h3Generator, (128,64))
+    // val bn2 = BatchNormalization(h2Generator, (None, 256))
+    // val h3Generator= LeakyReLU(bn2, (256, 512), 0.2)
+    val h3Generator= LeakyReLU(h2Generator, (256, 512), 0.2)
+    h3Generator.setName("generator_hidden3")
+    // val bn3 = BatchNormalization(h3Generator, (None, 512))
+    val fakeImages = Tanh(h3Generator, (512,784))
     fakeImages.setName("fake_images")
 
 
@@ -92,17 +101,20 @@ object Gan extends App {
     labels.setName("labels")
 
     // discriminator
-    // val h1Discrim = Maxout(images, (64,32))
-    val h1Discrim = LeakyReLU(images, (64,16), 0.2)
+    // val h1Discrim = ReLU(images, (784,256))
+    val h1Discrim = LeakyReLU(images, (784,256), 0.1)
     h1Discrim.setName("discriminator_hidden_layer1")
-    val d1 = new Dropout(h1Discrim, 0.5)
+    val d1 = new Dropout(h1Discrim, 0.20)
     d1.setName("dropout_h1_layer")
-    // val h2Discrim = Maxout(d1, (32,16))
-    // val h2Discrim = LeakyReLU(d1, (32,16), 0.2)
-    // h2Discrim.setName("discriminator_hidden_layer2")
-    // val d2 = new Dropout(h2Discrim, 0.8)
-    // d2.setName("dropout_h2_layer")
-    val logits = Linear(d1, (16, 1))
+    // val h2Discrim = ReLU(d1, (256,64))
+    val h2Discrim = LeakyReLU(d1, (256,64), 0.1)
+    h2Discrim.setName("discriminator_hidden_layer2")
+    val d2 = new Dropout(h2Discrim, 0.20)
+    d2.setName("dropout_h2_layer")
+    // val h3Discrim = ReLU(d2, (64,16))
+    val h3Discrim = LeakyReLU(d2, (64,16), 0.1)
+
+    val logits = Linear(h3Discrim, (16, 1))
     logits.setName("discriminator_logits")
 
     val cost = new BceWithLogits(labels, logits)
@@ -129,6 +141,17 @@ object Gan extends App {
         val (m,n) = node.size
         node.value = Nd4j.randn(m.asInstanceOf[Int], n.asInstanceOf[Int]) * math.sqrt(3/(m.asInstanceOf[Int].toDouble + n.asInstanceOf[Int].toDouble))
       }
+
+
+      // val Seq(s1,g1,b1) = bn1.inboundNodes
+      // val Seq(s2,g2,b2) = bn2.inboundNodes
+      // val Seq(s3,g3,b3) = bn3.inboundNodes
+
+      // g1.value = Nd4j.rand( g1.size._1.asInstanceOf[Int], g1.size._2.asInstanceOf[Int])
+      // g2.value = Nd4j.rand( g2.size._1.asInstanceOf[Int], g2.size._2.asInstanceOf[Int])
+      // g3.value = Nd4j.rand( g3.size._1.asInstanceOf[Int], g3.size._2.asInstanceOf[Int])
+
+
     //****************************************
     val Array(xrows, xcols) = x_.shape
     val batchSize = 128
@@ -224,37 +247,32 @@ object Gan extends App {
         loss += ((cost.value(0,0)) * images.value.shape.apply(0))
         n += images.value.shape.apply(0)
       }
-      if(epoch % 1000 == 0) stepSize /= 2d
-      if(epoch % 100 == 0) {
+      // if(epoch % 1000 == 0) stepSize /= 2d
+      if(epoch % 10 == 0) {
         println(s"discriminator -> epoch: ${epoch}, loss: ${loss / n.toDouble}")
         println(s"generator -----> epoch: ${epoch}, loss: ${genCost / (n.toDouble/2d)}")
+        noise.forward(noiseDataForPicture)
+        generator.foreach(_.forward())
+        val f4 = Figure()
+        for (i <- 0 until 16) {
+          val dig1 = fakeImages.value.getRow(i).dup.data.asDouble()
+          val dig1b = DenseMatrix(dig1).reshape(28,28)
+          f4.subplot(4,4,i) += image(dig1b)
+        }
+        f4.saveas(s"resources/fig${epoch}.png")
+
       }
 
       // check
       // fakeImages.gradients(fakeImages).sumT = 0.004577898420393467
 
+      // if(i % 500)
       }
 
-      // //******//
-      import breeze.linalg._
-      import breeze.plot._
-      // import scala.concurrent.duration.Thread
-      // val f2 = Figure()
-      //******//
-      val noiseDataForPicture = Nd4j.rand(16,100).mul(2).sub(1)
 
       // val r = DenseMatrix(
       //   (cos(math.PI/4d), sin(math.PI/4d),
       //   (-sin(math.PI / 4d), cos(math.PI/4d)))
-
-      noise.forward(noiseDataForPicture)
-      generator.foreach(_.forward())
-      val f4 = Figure()
-      for (i <- 0 until 16) {
-        val dig1 = fakeImages.value.getRow(i).dup.data.asDouble()
-        val dig1b = DenseMatrix(dig1).reshape(8,8)
-        f4.subplot(4,4,i) += image(dig1b)
-      }
 
       // val f3 = Figure()
       // Nd4j.shuffle(x_, 1)
