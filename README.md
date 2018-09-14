@@ -89,18 +89,6 @@ when you are in `beakerx` environment run
 
 `jupyter notebook`
 
-Create a new notebook using the Scala kernel.  Enter the following into cells and execute.  The first `%%classpath` command will download the ND4J requirements.  The second will add the neural network library.  
-
-```
-%%classpath add mvn
-org.nd4j nd4j-native-platform 0.7.2
-org.nd4j nd4s_2.11 0.7.2
-```
-
-```
-%classpath add jar target/scala-2.11/scala-miniflow_2.11-0.1.0-SNAPSHOT.jar
-```
-
 ## Quick Start
 
-See [code/QuickStart.scala][./code/QuickStart.scala] for a simple neural network for the boston dataset.  
+See `notebooks/Quick Start.ipynb`
