@@ -66,7 +66,7 @@ object Gan extends App {
     val h3Generator= LeakyReLU(h2Generator, (256, 512), 0.1)
     h3Generator.setName("generator_hidden3")
     // val bn3 = BatchNormalization(h3Generator, (None, 512))
-    val fakeImages = Tanh(h3Generator, (512,784))
+    val fakeImages = Sigmoid(h3Generator, (512,784))
     fakeImages.setName("fake_images")
 	  // end generator
 
@@ -270,7 +270,7 @@ object Gan extends App {
         val dig1b = DenseMatrix(da.reverse:_*) //.reshape(28,28)
         f4.subplot(4,4,i) += image(dig1b)
       }
-      f4.saveas(s"resources/newfig${epoch}.png")
+      f4.saveas(s"resources/genfig${epoch}.png")
     }
 
     // check
