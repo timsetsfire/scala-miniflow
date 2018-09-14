@@ -95,7 +95,7 @@ org.nd4j nd4s_2.11 0.7.2
 
 Suppose that `x_` and `y_` are INDArray of are the features and labels of the Boston Dataset.  
 
-{% highlight scala %}
+```:scala
 import org.nd4j.linalg.factory.Nd4j
 import org.nd4s.Implicits._
 import org.nd4j.linalg.api.ndarray.INDArray
@@ -160,4 +160,4 @@ for(epoch <- 0 to epochs) {
   }
   if(epoch % 50 == 0)  println(s"Epoch: ${epoch}, Loss: ${loss/stepsPerEpoch.toDouble}")
 }
-{% endhighlight %}
+```
